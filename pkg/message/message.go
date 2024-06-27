@@ -1,4 +1,4 @@
-package networking
+package message
 
 import (
 	"bytes"
