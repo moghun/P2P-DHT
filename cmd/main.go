@@ -2,49 +2,58 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/networking"
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 func main() {
-    // Parse command-line parameters
-    configPath := flag.String("c", "config.ini", "path to configuration file")
-    flag.Parse()
+	// Parse command-line parameters
+	configPath := flag.String("c", "config.ini", "path to configuration file")
+	flag.Parse()
 
-    // Initialize logging
-    util.InitLogging()
+	// Load configuration
+	config := util.LoadConfig(*configPath)
 
-    // Load configuration
-    config := util.LoadConfig(*configPath)
-    if config == nil {
-        log.Fatal("Failed to load configuration")
-    }
+	// Set up logging
+	util.SetupLogging("kademlia.log")
 
-    // Initialize storage
-    store := storage.NewStorage()
+	// Extract IP and port from the config
+	ip, port := config.DHT.GetP2PIPPort()
 
-    // Initialize DHT with a placeholder for network (will be set later)
-    dht := dht.NewDHT(nil, store)
-    if dht == nil {
-        log.Fatal("Failed to initialize DHT node")
-    }
+	// Create a new node
+	node := dht.NewNode(ip, port, false)
 
-    // Initialize network with a message handler function
-    network := networking.NewNetwork(config, dht.HandleMessage)
-    if network == nil {
-        log.Fatal("Failed to initialize network")
-    }
+	// Create a new DHT instance
+	dhtInstance := dht.NewDHT(node)
 
-    // Set the network in the DHT
-    dht.SetNetwork(network)
+	// Create a new network instance
+	network := networking.NewNetwork(dhtInstance)
 
-    // Start the DHT node
-    go dht.Run()
+	// Start the DHT server
+	go func() {
+		err := network.StartServer(ip, port)
+		if err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
 
-    // Keep the main function running
-    select {}
+	// Start periodic liveness check
+	dhtInstance.StartPeriodicLivenessCheck(10 * time.Second)
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-sigChan
+	fmt.Printf("Received signal %s, shutting down...\n", sig)
+
+	// Additional shutdown logic if necessary
 }
