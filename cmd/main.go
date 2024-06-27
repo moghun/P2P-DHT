@@ -28,8 +28,10 @@ func main() {
 	// Extract IP and port from the config
 	ip, port := config.DHT.GetP2PIPPort()
 
+    // For the sake of example
+	key, _ := util.GenerateRandomKey()
 	// Create a new node
-	node := dht.NewNode(ip, port, false)
+	node := dht.NewNode(ip, port, false, key)
 
 	// Create a new DHT instance
 	dhtInstance := dht.NewDHT(node)

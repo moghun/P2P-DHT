@@ -25,13 +25,15 @@ type Node struct {
 	mu       sync.Mutex
 }
 
-func NewNode(ip string, port int, ping bool) *Node {
+func NewNode(ip string, port int, ping bool, key []byte) *Node {
+    ttl := 24 * time.Hour
+
 	node := &Node{
 		ID:       generateNodeID(ip, port),
 		IP:       ip,
 		Port:     port,
 		Ping:     ping,
-		Storage:  storage.NewStorage(24 * time.Hour),
+		Storage:  storage.NewStorage(ttl, key),
 		KBuckets: make([]*KBucket, 160),
 	}
 
@@ -109,8 +111,12 @@ func (n *Node) Put(key, value string, ttl int) {
 	n.Storage.Put(key, value, ttl)
 }
 
-func (n *Node) Get(key string) string {
-	return n.Storage.Get(key)
+func (n *Node) Get(key string) (string, error) {
+	value, err := n.Storage.Get(key)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
 }
 
 func calculateDistance(id1, id2 string) uint64 {
