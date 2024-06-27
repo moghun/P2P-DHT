@@ -10,14 +10,14 @@ import (
 type DHT struct {
     network      *networking.Network
     storage      *storage.Storage
-    routingTable *RoutingTable
+    bucket *KBucket
 }
 
 func NewDHT(network *networking.Network, storage *storage.Storage) *DHT {
     return &DHT{
         network:      network,
         storage:      storage,
-        routingTable: NewRoutingTable(),
+        bucket: NewKBucket(),
     }
 }
 

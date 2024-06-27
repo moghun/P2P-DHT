@@ -8,12 +8,16 @@ import (
 type Node struct {
     ID      string
     Address string
+    IP      string
+    Port    int
 }
 
-func NewNode(id, address string) *Node {
+func NewNode(port int, id, ip, address string) *Node {
     return &Node{
         ID:      id,
         Address: address,
+        IP:     ip,
+        Port:    port,
     }
 }
 
