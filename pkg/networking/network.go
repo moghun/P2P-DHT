@@ -1,62 +1,82 @@
 package networking
 
 import (
-    "encoding/json"
-    "log"
-    "net"
-    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
+	"fmt"
+	"log"
+	"net"
+	"time"
+
+    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 )
 
 type Network struct {
-    address   string
-    handleMsg func(msg Message, senderAddress string)
+	dhtInstance *dht.DHT
 }
 
-func NewNetwork(config *util.Config, handleMsg func(msg Message, senderAddress string)) *Network {
-    return &Network{
-        address:   config.P2PAddress,
-        handleMsg: handleMsg,
-    }
+func NewNetwork(dhtInstance *dht.DHT) *Network {
+	return &Network{dhtInstance: dhtInstance}
 }
 
-func (n *Network) Start() {
-    listener, err := net.Listen("tcp", n.address)
-    if err != nil {
-        log.Fatalf("Failed to start network: %v", err)
-    }
-    defer listener.Close()
+func (n *Network) StartServer(ip string, port int) error {
+	addr := fmt.Sprintf("%s:%d", ip, port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
 
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            log.Printf("Failed to accept connection: %v", err)
-            continue
-        }
-        go n.handleConnection(conn)
-    }
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			return err
+		}
+		go n.handleConnection(conn)
+	}
 }
 
 func (n *Network) handleConnection(conn net.Conn) {
-    defer conn.Close()
-    var msg Message
-    decoder := json.NewDecoder(conn)
-    if err := decoder.Decode(&msg); err != nil {
-        log.Printf("Failed to decode message: %v", err)
-        return
-    }
-    n.handleMsg(msg, conn.RemoteAddr().String())
+	defer conn.Close()
+
+	data := make([]byte, 1024)
+	for {
+		length, err := conn.Read(data)
+		if err != nil {
+			log.Printf("Error reading from connection: %v", err)
+			return
+		}
+
+		msg, err := message.DeserializeMessage(data[:length])
+		if err != nil {
+			log.Printf("Error deserializing message: %v", err)
+			return
+		}
+
+		responseData, err := n.dhtInstance.ProcessMessage(msg.Data)
+		if err != nil {
+			log.Printf("Error processing message: %v", err)
+			return
+		}
+
+		if responseData != nil {
+			conn.Write(responseData)
+		}
+	}
 }
 
-func (n *Network) SendMessage(address string, msg Message) error {
-    conn, err := net.Dial("tcp", address)
-    if err != nil {
-        return err
-    }
-    defer conn.Close()
+func (n *Network) SendMessage(targetIP string, targetPort int, message []byte) error {
+	addr := fmt.Sprintf("%s:%d", targetIP, targetPort)
+	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
 
-    encoder := json.NewEncoder(conn)
-    if err := encoder.Encode(msg); err != nil {
-        return err
-    }
-    return nil
+	_, err = conn.Write(message)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
+
