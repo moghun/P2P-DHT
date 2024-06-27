@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -18,9 +19,9 @@ type Storage struct {
 }
 
 type storageItem struct {
-	value   string
-	expiry  time.Time
-	hash    string
+	value  string
+	expiry time.Time
+	hash   string
 }
 
 func NewStorage(ttl time.Duration, key []byte) *Storage {
@@ -46,9 +47,9 @@ func (s *Storage) Put(key, value string, ttl int) error {
 
 	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.data[key] = &storageItem{
-		value:   encryptedValue,
-		expiry:  expiry,
-		hash:    hash,
+		value:  encryptedValue,
+		expiry: expiry,
+		hash:   hash,
 	}
 	return nil
 }
@@ -88,6 +89,7 @@ func (s *Storage) cleanupExpired() {
 
 	for key, item := range s.data {
 		if time.Now().After(item.expiry) {
+			log.Printf("Cleaning up expired item with key: %s", key) // Add debug log
 			delete(s.data, key)
 		}
 	}
