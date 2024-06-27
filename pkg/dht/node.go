@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/bits"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -30,7 +31,7 @@ func NewNode(ip string, port int, ping bool) *Node {
 		IP:       ip,
 		Port:     port,
 		Ping:     ping,
-		Storage:  storage.NewStorage(24 * time.Hour), // TTL
+		Storage:  storage.NewStorage(24 * time.Hour),
 		KBuckets: make([]*KBucket, 160),
 	}
 
@@ -38,6 +39,7 @@ func NewNode(ip string, port int, ping bool) *Node {
 		node.KBuckets[i] = NewKBucket()
 	}
 
+	node.setupTLS()
 	return node
 }
 
@@ -47,7 +49,15 @@ func generateNodeID(ip string, port int) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+func (n *Node) setupTLS() {
+	tlsDir := fmt.Sprintf("%s_%d", n.IP, n.Port)
+	certsDir := filepath.Join("certificates", tlsDir)
 
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		os.MkdirAll(certsDir, os.ModePerm)
+		n.generateCertificates(certsDir)
+	}
+}
 
 func (n *Node) generateCertificates(certsDir string) {
 	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", n.IP, n.Port))

@@ -1,6 +1,7 @@
 package networking
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -80,3 +81,10 @@ func (n *Network) SendMessage(targetIP string, targetPort int, message []byte) e
 	return nil
 }
 
+func (n *Network) LoadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+}
