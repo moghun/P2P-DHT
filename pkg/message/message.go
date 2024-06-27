@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
+
+var encryptionKey []byte
 
 // Message codes for DHT operations
 const (
@@ -26,14 +27,6 @@ type Message struct {
 	Data []byte
 }
 
-// Key used for encryption and decryption
-var encryptionKey []byte
-
-// SetEncryptionKey sets the encryption key for all messages
-func SetEncryptionKey(key []byte) {
-	encryptionKey = key
-}
-
 func NewMessage(t int, data []byte) *Message {
 	return &Message{Type: t, Data: data}
 }
@@ -42,31 +35,38 @@ func (m *Message) Serialize() ([]byte, error) {
 	if encryptionKey == nil {
 		return nil, errors.New("encryption key not set")
 	}
-
-	encryptedData, err := util.Encrypt(m.Data, encryptionKey)
-	if err != nil {
-		return nil, err
-	}
-
+	
 	buf := new(bytes.Buffer)
 	if err := binary.Write(buf, binary.BigEndian, int16(m.Type)); err != nil {
 		return nil, err
 	}
-	if err := binary.Write(buf, binary.BigEndian, int16(len(encryptedData))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, int16(len(m.Data))); err != nil {
 		return nil, err
 	}
-	if _, err := buf.Write([]byte(encryptedData)); err != nil {
+	if _, err := buf.Write(m.Data); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+
+	serializedData := buf.Bytes()
+	encryptedData, err := util.Encrypt(serializedData, encryptionKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(encryptedData), nil
 }
 
 func DeserializeMessage(data []byte) (*Message, error) {
 	if encryptionKey == nil {
 		return nil, errors.New("encryption key not set")
 	}
+	
+	decryptedData, err := util.Decrypt(string(data), encryptionKey)
+	if err != nil {
+		return nil, err
+	}
 
-	buf := bytes.NewReader(data)
+	buf := bytes.NewReader(decryptedData)
 	var msgType int16
 	if err := binary.Read(buf, binary.BigEndian, &msgType); err != nil {
 		return nil, err
@@ -77,15 +77,14 @@ func DeserializeMessage(data []byte) (*Message, error) {
 		return nil, err
 	}
 
-	encryptedData := make([]byte, dataLen)
-	if _, err := buf.Read(encryptedData); err != nil {
+	msgData := make([]byte, dataLen)
+	if _, err := buf.Read(msgData); err != nil {
 		return nil, err
 	}
 
-	decryptedData, err := util.Decrypt(string(encryptedData), encryptionKey)
-	if err != nil {
-		return nil, err
-	}
+	return &Message{Type: int(msgType), Data: msgData}, nil
+}
 
-	return &Message{Type: int(msgType), Data: decryptedData}, nil
+func SetEncryptionKey(key []byte) {
+	encryptionKey = key
 }
