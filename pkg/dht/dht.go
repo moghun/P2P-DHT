@@ -1,54 +1,122 @@
 package dht
 
 import (
-	"log"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"net"
+	"sync"
+	"time"
 
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/networking"
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type DHT struct {
-    network      *networking.Network
-    storage      *storage.Storage
-    bucket *KBucket
+	node     *Node
+	kBuckets []*KBucket
+	mu       sync.Mutex
 }
 
-func NewDHT(network *networking.Network, storage *storage.Storage) *DHT {
-    return &DHT{
-        network:      network,
-        storage:      storage,
-        bucket: NewKBucket(),
-    }
+func NewDHT(node *Node) *DHT {
+	kBuckets := make([]*KBucket, 160)
+	for i := range kBuckets {
+		kBuckets[i] = NewKBucket()
+	}
+	return &DHT{
+		node:     node,
+		kBuckets: kBuckets,
+	}
 }
 
-func (d *DHT) Run() {
-    log.Println("DHT is running")
-    d.network.Start()
-    // Implement the DHT main loop here
+func (d *DHT) ProcessMessage(data []byte) ([]byte, error) {
+	size := binary.BigEndian.Uint16(data[:2])
+	requestType := binary.BigEndian.Uint16(data[2:4])
+
+	if size != uint16(len(data)) {
+		return nil, errors.New("wrong data size")
+	}
+
+	switch requestType {
+	case message.DHT_PING:
+		return d.handlePing(data[4:]), nil
+	case message.DHT_PONG:
+		return d.handlePong(data[4:]), nil
+	case message.DHT_PUT:
+		return d.handlePut(data), nil
+	case message.DHT_GET:
+		return d.handleGet(data), nil
+	case message.DHT_FIND_NODE:
+		return d.handleFindNode(data[4:]), nil
+	case message.DHT_FIND_VALUE:
+		return d.handleFindValue(data[4:]), nil
+	default:
+		return nil, errors.New("invalid request type")
+	}
 }
 
-func (d *DHT) HandleMessage(msg networking.Message, senderAddress string) {
-    switch msg.Type {
-    case networking.PUT:
-        d.storage.Put(msg.Key, msg.Value)
-    case networking.GET:
-        value, exists := d.storage.Get(msg.Key)
-        response := networking.Message{
-            Type:    networking.SUCCESS,
-            Key:     msg.Key,
-            Value:   value,
-            Success: exists,
-        }
-        if !exists {
-            response.Type = networking.FAILURE
-        }
-        // Send the response back to the requester
-        if err := d.network.SendMessage(senderAddress, response); err != nil {
-            log.Printf("Failed to send response: %v", err)
-        }
-    }
+func (d *DHT) handlePing(data []byte) []byte {
+	// Implement Ping logic
+	response, _ := message.NewMessage(message.DHT_PONG, data).Serialize()
+	return response
 }
 
-func (d *DHT) SetNetwork(network *networking.Network) {
-    d.network = network
+func (d *DHT) handlePong(data []byte) []byte {
+	// Implement Pong logic
+	return nil
+}
+
+func (d *DHT) handlePut(data []byte) []byte {
+	// Implement Put logic
+	response, _ := message.NewMessage(message.DHT_SUCCESS, []byte("put works")).Serialize()
+	return response
+}
+
+func (d *DHT) handleGet(data []byte) []byte {
+	// Implement Get logic
+	response, _ := message.NewMessage(message.DHT_SUCCESS, []byte("get works")).Serialize()
+	return response
+}
+
+func (d *DHT) handleFindNode(data []byte) []byte {
+	// Implement FindNode logic
+	return nil
+}
+
+func (d *DHT) handleFindValue(data []byte) []byte {
+	// Implement FindValue logic
+	return nil
+}
+
+func (d *DHT) StartPeriodicLivenessCheck(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	go func() {
+		for {
+			<-ticker.C
+			d.checkAllLiveness()
+		}
+	}()
+}
+
+func (d *DHT) checkAllLiveness() {
+	peers := d.node.GetAllPeers()
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p *Node) {
+			defer wg.Done()
+			if !d.checkLiveness(p.IP, p.Port, 3*time.Second) {
+				d.node.RemovePeer(p.IP, p.Port)
+			}
+		}(peer)
+	}
+	wg.Wait()
+}
+
+func (d *DHT) checkLiveness(ip string, port int, timeout time.Duration) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
