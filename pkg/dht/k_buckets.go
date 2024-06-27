@@ -59,6 +59,18 @@ func (kb *KBucket) GetNodes() []*Node {
 	return nodes
 }
 
+func (kb *KBucket) Contains(node *Node) bool {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	for e := kb.nodes.Front(); e != nil; e = e.Next() {
+		if e.Value.(*Node).ID == node.ID {
+			return true
+		}
+	}
+	return false
+}
+
 func (kb *KBucket) Visualize() {
 	for e := kb.nodes.Front(); e != nil; e = e.Next() {
 		node := e.Value.(*Node)
