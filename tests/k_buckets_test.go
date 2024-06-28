@@ -67,7 +67,7 @@ func TestAddNodeFullBucket(t *testing.T) {
 	}
 }
 
-func TestRemoveNode(t *testing.T) {
+func TestRemoveNodeKBuck(t *testing.T) {
 	kbucket := dht.NewKBucket()
 
 	node1 := &dht.Node{

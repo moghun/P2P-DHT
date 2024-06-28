@@ -143,3 +143,11 @@ func (n *Network) LoadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
 	}
 	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
 }
+
+func (n *Network) JoinNetwork(node *dht.Node) {
+	n.dhtInstance.JoinNetwork(node)
+}
+
+func (n *Network) LeaveNetwork(node *dht.Node) error {
+	return n.dhtInstance.LeaveNetwork(node)
+}

@@ -15,6 +15,7 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/networking"
+	"github.com/stretchr/testify/assert"
 )
 
 func generateKeyPair(bits int) (*rsa.PrivateKey, error) {
@@ -79,8 +80,11 @@ func TestStartServer(t *testing.T) {
 		t.Fatalf("Failed to generate encryption key: %v", err)
 	}
 
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, false, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
+
 	network := networking.NewNetwork(dhtInstance)
 
 	errChan := make(chan error)
@@ -116,8 +120,11 @@ func TestSendMessage(t *testing.T) {
 	}
 	message.SetEncryptionKey(key)
 
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8001, false, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
+
 	network := networking.NewNetwork(dhtInstance)
 
 	errChan := make(chan error)
@@ -151,7 +158,6 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
-
 func TestHandleConnection(t *testing.T) {
 	key := make([]byte, 32) // AES-256 key size
 	_, err := rand.Read(key)
@@ -160,8 +166,11 @@ func TestHandleConnection(t *testing.T) {
 	}
 	message.SetEncryptionKey(key)
 
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8002, false, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
+
 	network := networking.NewNetwork(dhtInstance)
 
 	errChan := make(chan error)
@@ -195,7 +204,6 @@ func TestHandleConnection(t *testing.T) {
 	}
 	defer conn.Close()
 
-
 	_, err = conn.Write(serializedMsg)
 	if err != nil {
 		t.Fatalf("Failed to write message to connection: %v", err)
@@ -207,13 +215,10 @@ func TestHandleConnection(t *testing.T) {
 		t.Fatalf("Failed to read from connection: %v", err)
 	}
 
-
 	responseMsg, err := message.DeserializeMessage(data[:length])
 	if err != nil {
 		t.Fatalf("Failed to deserialize response: %v", err)
 	}
-
-
 
 	expectedData := "ping"
 	if string(responseMsg.Data) != expectedData {
@@ -248,7 +253,6 @@ func TestLoadTLSConfig(t *testing.T) {
 	}
 }
 
-
 func TestGetListeningPort(t *testing.T) {
 	key := make([]byte, 32)
 	_, err := rand.Read(key)
@@ -256,8 +260,11 @@ func TestGetListeningPort(t *testing.T) {
 		t.Fatalf("Failed to generate encryption key: %v", err)
 	}
 
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 0, false, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
+
 	network := networking.NewNetwork(dhtInstance)
 
 	errChan := make(chan error)
@@ -297,8 +304,11 @@ func TestStopServer(t *testing.T) {
 		t.Fatalf("Failed to generate encryption key: %v", err)
 	}
 
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 0, false, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
+
 	network := networking.NewNetwork(dhtInstance)
 
 	errChan := make(chan error)
@@ -328,4 +338,30 @@ func TestStopServer(t *testing.T) {
 		defer conn.Close()
 		t.Fatalf("Expected connection to fail after server stop")
 	}
+}
+
+func TestJoinAndLeaveNetworkNModule(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		t.Fatalf("Failed to generate encryption key: %v", err)
+	}
+
+	dhtInstance := dht.NewDHT()
+	network := networking.NewNetwork(dhtInstance)
+
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+
+	network.JoinNetwork(node1)
+	network.JoinNetwork(node2)
+
+	peers := dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 2)
+
+	err = network.LeaveNetwork(node2)
+	assert.Nil(t, err)
+
+	peers = dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 1)
 }
