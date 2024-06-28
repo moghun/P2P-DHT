@@ -31,6 +31,15 @@ func NewDHT() *DHT {
 	}
 }
 
+//TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
+//			It can be a periodic check maybe.
+func (d *DHT) getReplicationFactor() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	nodeCount := len(d.nodes)
+	return (nodeCount / 2) + 1
+}
+
 func (d *DHT) ProcessMessage(size uint16, msgType int, data []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return nil, errors.New("data too short to process")
@@ -187,6 +196,12 @@ func (d *DHT) RemoveNode(node *Node) {
 		}
 	}
 
+	// Re-distribute the node's data
+	for key, value := range node.Storage.GetAll() {
+		fmt.Printf("Re-distributing key '%s' after removing node %s:%d\n", key, node.IP, node.Port)
+		_ = d.redistributeKey(key, value, 3600)
+	}
+
 	// Remove the node from each k-bucket
 	fmt.Printf("Removing node %s:%d from k-buckets\n", node.IP, node.Port)
 	d.RemoveNodeFromBuckets(node)
@@ -197,6 +212,37 @@ func (d *DHT) RemoveNode(node *Node) {
 	}
 }
 
+func (d *DHT) redistributeKey(key, value string, ttl int) error {
+	hash := sha256.Sum256([]byte(key))
+	targetID := hex.EncodeToString(hash[:])
+	replicationFactor := d.getReplicationFactor()
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return errors.New("no suitable node found for storing the key")
+	}
+
+	// Remove the failed node from the closest nodes
+	closestNodes = removeFailedNode(closestNodes)
+
+	var err error
+	for _, node := range closestNodes {
+		err = node.Put(key, value, ttl)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func removeFailedNode(nodes []*Node) []*Node {
+	var liveNodes []*Node
+	for _, node := range nodes {
+		if !node.IsDown {
+			liveNodes = append(liveNodes, node)
+		}
+	}
+	return liveNodes
+}
 
 func (d *DHT) JoinNetwork(node *Node) {
 	d.mu.Lock()
@@ -262,23 +308,40 @@ func (d *DHT) GetKBuckets() []*KBucket {
 func (d *DHT) DhtPut(key, value string, ttl int) error {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
-	closestNodes := d.GetClosestNodes(targetID, 1)
-	if len(closestNodes) > 0 {
-		targetNode := closestNodes[0]
-		return targetNode.Put(key, value, ttl)
+	replicationFactor := d.getReplicationFactor()
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return errors.New("no suitable node found for storing the key")
 	}
-	return errors.New("no suitable node found for storing the key")
+
+	var err error
+	for _, node := range closestNodes {
+		err = node.Put(key, value, ttl)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *DHT) DhtGet(key string) (string, error) {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
-	closestNodes := d.GetClosestNodes(targetID, 1)
-	if len(closestNodes) > 0 {
-		targetNode := closestNodes[0]
-		return targetNode.Get(key)
+	replicationFactor := d.getReplicationFactor()
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return "", errors.New("no suitable node found for retrieving the key")
 	}
-	return "", errors.New("no suitable node found for retrieving the key")
+
+	var value string
+	var err error
+	for _, node := range closestNodes {
+		value, err = node.Get(key)
+		if err == nil {
+			return value, nil
+		}
+	}
+	return "", err
 }
 
 func (d *DHT) GetClosestNodes(targetID string, k int) []*Node {
