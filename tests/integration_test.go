@@ -263,3 +263,71 @@ func TestTwoNodesInteraction(t *testing.T) {
     t.Logf("Network server stopped")
 }
 
+func TestNodeFailureAndDataReplication(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+
+    // Initialize a single DHT instance
+    dhtInstance := dht.NewDHT()
+
+    // Initialize a single network instance
+    network := networking.NewNetwork(dhtInstance)
+
+    // Start the network server once
+    go func() {
+        if err := network.StartServer("127.0.0.1", 0); err != nil {
+            t.Fatalf("Failed to start network server: %v", err)
+        }
+    }()
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Start three nodes
+    _, ip1, port1, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start first node: %v", err)
+    }
+    t.Logf("Node1: %s:%d", ip1, port1)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    node2, ip2, port2, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start second node: %v", err)
+    }
+    t.Logf("Node2: %s:%d", ip2, port2)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    _, ip3, port3, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start third node: %v", err)
+    }
+    t.Logf("Node3: %s:%d", ip3, port3)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Store a value in node1 using DHT methods
+    err = dhtInstance.DhtPut("replicatedKey", "replicatedValue", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store data in node1: %v", err)
+    }
+    t.Logf("Stored 'replicatedKey' with value 'replicatedValue' in Node1")
+
+    // Simulate node2 failure
+    err = dhtInstance.LeaveNetwork(node2)
+    if err != nil {
+        t.Fatalf("Failed to remove node2: %v", err)
+    }
+    t.Logf("Node2 left the network")
+
+    // Allow some time for the network to sync
+    time.Sleep(3 * time.Second)
+
+    // Verify that the value can be retrieved from node3
+    retrievedValue, err := dhtInstance.DhtGet("replicatedKey")
+    if err != nil || retrievedValue != "replicatedValue" {
+        t.Errorf("Failed to retrieve the correct value from node3, expected 'replicatedValue', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'replicatedKey' with value '%s' from Node3", retrievedValue)
+    }
+
+    // Clean up
+    network.StopServer()
+    t.Logf("Network server stopped")
+}
