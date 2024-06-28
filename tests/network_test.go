@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -244,5 +245,87 @@ func TestLoadTLSConfig(t *testing.T) {
 	_, err = network.LoadTLSConfig(certFile, keyFile)
 	if err != nil {
 		t.Fatalf("Failed to load TLS config: %v", err)
+	}
+}
+
+
+func TestGetListeningPort(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		t.Fatalf("Failed to generate encryption key: %v", err)
+	}
+
+	node := dht.NewNode("127.0.0.1", 0, false, key)
+	dhtInstance := dht.NewDHT(node)
+	network := networking.NewNetwork(dhtInstance)
+
+	errChan := make(chan error)
+
+	go func() {
+		if err := network.StartServer("127.0.0.1", 0); err != nil {
+			errChan <- err
+		}
+		close(errChan)
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			t.Fatalf("Failed to start server: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		// Server started successfully
+	}
+
+	port := network.GetListeningPort()
+	if port == 0 {
+		t.Fatalf("Failed to get listening port")
+	}
+
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		t.Fatalf("Failed to connect to server: %v", err)
+	}
+	defer conn.Close()
+}
+
+func TestStopServer(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		t.Fatalf("Failed to generate encryption key: %v", err)
+	}
+
+	node := dht.NewNode("127.0.0.1", 0, false, key)
+	dhtInstance := dht.NewDHT(node)
+	network := networking.NewNetwork(dhtInstance)
+
+	errChan := make(chan error)
+
+	go func() {
+		if err := network.StartServer("127.0.0.1", 0); err != nil {
+			errChan <- err
+		}
+		close(errChan)
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			t.Fatalf("Failed to start server: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		// Server started successfully
+	}
+
+	network.StopServer()
+	time.Sleep(1 * time.Second) // Ensure server stops
+
+	port := network.GetListeningPort()
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err == nil {
+		defer conn.Close()
+		t.Fatalf("Expected connection to fail after server stop")
 	}
 }
