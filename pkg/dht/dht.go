@@ -14,10 +14,6 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
-const (
-	replicationFactor = 3 // Number of replicas for each data item
-)
-
 type DHT struct {
 	nodes    []*Node
 	kBuckets []*KBucket
@@ -33,6 +29,15 @@ func NewDHT() *DHT {
 		nodes:    []*Node{},
 		kBuckets: kBuckets,
 	}
+}
+
+//TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
+//			It can be a periodic check maybe.
+func (d *DHT) getReplicationFactor() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	nodeCount := len(d.nodes)
+	return (nodeCount / 2) + 1
 }
 
 func (d *DHT) ProcessMessage(size uint16, msgType int, data []byte) ([]byte, error) {
@@ -210,10 +215,14 @@ func (d *DHT) RemoveNode(node *Node) {
 func (d *DHT) redistributeKey(key, value string, ttl int) error {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
+	replicationFactor := d.getReplicationFactor()
 	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
 	if len(closestNodes) == 0 {
 		return errors.New("no suitable node found for storing the key")
 	}
+
+	// Remove the failed node from the closest nodes
+	closestNodes = removeFailedNode(closestNodes)
 
 	var err error
 	for _, node := range closestNodes {
@@ -223,6 +232,16 @@ func (d *DHT) redistributeKey(key, value string, ttl int) error {
 		}
 	}
 	return nil
+}
+
+func removeFailedNode(nodes []*Node) []*Node {
+	var liveNodes []*Node
+	for _, node := range nodes {
+		if !node.IsDown {
+			liveNodes = append(liveNodes, node)
+		}
+	}
+	return liveNodes
 }
 
 func (d *DHT) JoinNetwork(node *Node) {
@@ -289,6 +308,7 @@ func (d *DHT) GetKBuckets() []*KBucket {
 func (d *DHT) DhtPut(key, value string, ttl int) error {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
+	replicationFactor := d.getReplicationFactor()
 	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
 	if len(closestNodes) == 0 {
 		return errors.New("no suitable node found for storing the key")
@@ -307,6 +327,7 @@ func (d *DHT) DhtPut(key, value string, ttl int) error {
 func (d *DHT) DhtGet(key string) (string, error) {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
+	replicationFactor := d.getReplicationFactor()
 	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
 	if len(closestNodes) == 0 {
 		return "", errors.New("no suitable node found for retrieving the key")

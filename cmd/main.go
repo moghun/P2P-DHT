@@ -29,12 +29,10 @@ func main() {
 	ip, port := config.DHT.GetP2PIPPort()
 
     // For the sake of example
-	key, _ := util.GenerateRandomKey()
 	// Create a new node
-	node := dht.NewNode(ip, port, false, key)
 
 	// Create a new DHT instance
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance := dht.NewDHT()
 
 	// Create a new network instance
 	network := networking.NewNetwork(dhtInstance)
