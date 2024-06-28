@@ -1,18 +1,41 @@
-.PHONY: all build clean test
+# Go parameters
+GOCMD=go
+GOBUILD=$(GOCMD) build
+GOCLEAN=$(GOCMD) clean
+GOTEST=$(GOCMD) test
+GOGET=$(GOCMD) get
+BINARY_NAME=dht-node
+CONFIG_FILE=config.ini
 
-all: build
-
+# Build the project
 build:
-    go build -o bin/DHT-14 ./cmd
+	$(GOBUILD) -o $(BINARY_NAME) ./cmd/main.go
 
-clean:
-    rm -rf bin/
+# Run the project
+run: build
+	./$(BINARY_NAME) -c $(CONFIG_FILE)
 
+# Test the project
 test:
-    go test ./tests/...
+	$(GOTEST) -v ./...
+
+# Clean build artifacts
+clean:
+	$(GOCLEAN)
+	rm -f $(BINARY_NAME)
+
+# Install dependencies
+deps:
+	$(GOGET) -v ./...
+
+# Format the code
+fmt:
+	$(GOCMD) fmt ./...
 
 lint:
-    golint ./...
+	golangci-lint run
 
-vet:
-    go vet ./...
+doc:
+	godoc -http=:6060
+
+.PHONY: build run test clean deps fmt lint doc

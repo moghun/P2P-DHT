@@ -1,0 +1,172 @@
+package dht
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/bits"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"sync"
+	"time"
+
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
+)
+
+type Node struct {
+	ID       string
+	IP       string
+	Port     int
+	Ping     bool
+	Storage  *storage.Storage
+	KBuckets []*KBucket
+	mu       sync.Mutex
+}
+
+func NewNode(ip string, port int, ping bool, key []byte) *Node {
+    ttl := 24 * time.Hour
+
+	node := &Node{
+		ID:       GenerateNodeID(ip, port),
+		IP:       ip,
+		Port:     port,
+		Ping:     ping,
+		Storage:  storage.NewStorage(ttl, key),
+		KBuckets: make([]*KBucket, 160),
+	}
+
+	for i := range node.KBuckets {
+		node.KBuckets[i] = NewKBucket()
+	}
+
+	node.setupTLS()
+	return node
+}
+
+func GenerateNodeID(ip string, port int) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (n *Node) setupTLS() {
+	tlsDir := fmt.Sprintf("%s_%d", n.IP, n.Port)
+	certsDir := filepath.Join("certificates", tlsDir)
+
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		os.MkdirAll(certsDir, os.ModePerm)
+		n.GenerateCertificates(certsDir)
+	}
+}
+
+func (n *Node) GenerateCertificates(certsDir string) {
+	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", n.IP, n.Port))
+	csrFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", n.IP, n.Port))
+	certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.crt", n.IP, n.Port))
+
+	fmt.Printf("Generating key: %s\n", keyFile)
+	err := exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
+	if err != nil {
+		fmt.Printf("Error generating key: %v\n", err)
+	}
+
+	fmt.Printf("Generating CSR: %s\n", csrFile)
+	err = exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-subj", fmt.Sprintf("/CN=%d", n.Port)).Run()
+	if err != nil {
+		fmt.Printf("Error generating CSR: %v\n", err)
+	}
+
+	caDir := filepath.Join("certificates", "CA")
+	fmt.Printf("Generating certificate: %s\n", certFile)
+	err = exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365").Run()
+	if err != nil {
+		fmt.Printf("Error generating certificate: %v\n", err)
+	}
+}
+
+
+func (n *Node) AddPeer(nodeID, ip string, port int) {
+	distance := calculateDistance(n.ID, nodeID)
+	bucketIndex := getBucketIndex(distance)
+	peerNode := &Node{ID: nodeID, IP: ip, Port: port}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	if !n.KBuckets[bucketIndex].Contains(peerNode) {
+		n.KBuckets[bucketIndex].AddNode(peerNode)
+	}
+}
+
+func (n *Node) RemovePeer(ip string, port int) {
+	nodeID := GenerateNodeID(ip, port)
+	distance := calculateDistance(n.ID, nodeID)
+	bucketIndex := getBucketIndex(distance)
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	n.KBuckets[bucketIndex].RemoveNode(nodeID)
+}
+
+func (n *Node) GetAllPeers() []*Node {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	var peers []*Node
+	for _, bucket := range n.KBuckets {
+		peers = append(peers, bucket.GetNodes()...)
+	}
+	return peers
+}
+
+func (n *Node) Put(key, value string, ttl int) error {
+	return n.Storage.Put(key, value, ttl)
+}
+
+func (n *Node) Get(key string) (string, error) {
+	value, err := n.Storage.Get(key)
+	if err != nil {
+		return "", err
+	}
+	return value, nil
+}
+
+func calculateDistance(id1, id2 string) uint64 {
+	hash1, _ := hex.DecodeString(id1)
+	hash2, _ := hex.DecodeString(id2)
+
+	var distance uint64
+	for i := range hash1 {
+		distance += uint64(hash1[i] ^ hash2[i])
+	}
+	return distance
+}
+
+func getBucketIndex(distance uint64) int {
+	if distance == 0 {
+		return 0
+	}
+	return 159 - bits.LeadingZeros64(distance)
+}
+
+func (n *Node) GetClosestNodes(targetID string, k int) []*Node {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	var allNodes []*Node
+	for _, bucket := range n.KBuckets {
+		allNodes = append(allNodes, bucket.GetNodes()...)
+	}
+
+	sort.Slice(allNodes, func(i, j int) bool {
+		return calculateDistance(targetID, allNodes[i].ID) < calculateDistance(targetID, allNodes[j].ID)
+	})
+
+	if len(allNodes) > k {
+		return allNodes[:k]
+	}
+	return allNodes
+}
