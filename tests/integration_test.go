@@ -331,3 +331,72 @@ func TestNodeFailureAndDataReplication(t *testing.T) {
     network.StopServer()
     t.Logf("Network server stopped")
 }
+
+func TestNodeRejoiningNetwork(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+
+    // Initialize a single DHT instance
+    dhtInstance := dht.NewDHT()
+
+    // Initialize a single network instance
+    network := networking.NewNetwork(dhtInstance)
+
+    // Start the network server once
+    go func() {
+        if err := network.StartServer("127.0.0.1", 0); err != nil {
+            t.Fatalf("Failed to start network server: %v", err)
+        }
+    }()
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Start two nodes
+    _, ip1, port1, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start first node: %v", err)
+    }
+    t.Logf("Node1: %s:%d", ip1, port1)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    node2, ip2, port2, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start second node: %v", err)
+    }
+    t.Logf("Node2: %s:%d", ip2, port2)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Store a value in node1 using DHT methods
+    err = dhtInstance.DhtPut("rejoinKey", "rejoinValue", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store data in node1: %v", err)
+    }
+    t.Logf("Stored 'rejoinKey' with value 'rejoinValue' in Node1")
+
+    // Simulate node2 leaving the network
+    err = dhtInstance.LeaveNetwork(node2)
+    if err != nil {
+        t.Fatalf("Failed to remove node2: %v", err)
+    }
+    t.Logf("Node2 left the network")
+
+    // Allow some time for the network to sync
+    time.Sleep(2 * time.Second)
+
+    // Simulate node2 rejoining the network
+    dhtInstance.JoinNetwork(node2)
+    t.Logf("Node2 rejoined the network")
+
+    // Allow some time for the network to sync
+    time.Sleep(2 * time.Second)
+
+    // Verify that node2 can retrieve the value
+    retrievedValue, err := dhtInstance.DhtGet("rejoinKey")
+    if err != nil || retrievedValue != "rejoinValue" {
+        t.Errorf("Failed to retrieve the correct value from node2, expected 'rejoinValue', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'rejoinKey' with value '%s' from Node2", retrievedValue)
+    }
+
+    // Clean up
+    network.StopServer()
+    t.Logf("Network server stopped")
+}
