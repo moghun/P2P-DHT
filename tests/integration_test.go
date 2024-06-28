@@ -400,3 +400,111 @@ func TestNodeRejoiningNetwork(t *testing.T) {
     network.StopServer()
     t.Logf("Network server stopped")
 }
+
+func TestMultipleKeysAndNodes(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+
+    // Initialize a single DHT instance
+    dhtInstance := dht.NewDHT()
+
+    // Initialize a single network instance
+    network := networking.NewNetwork(dhtInstance)
+
+    // Start the network server once
+    go func() {
+        if err := network.StartServer("127.0.0.1", 0); err != nil {
+            t.Fatalf("Failed to start network server: %v", err)
+        }
+    }()
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Start four nodes
+    _, ip1, port1, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start first node: %v", err)
+    }
+    t.Logf("Node1: %s:%d", ip1, port1)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    _, ip2, port2, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start second node: %v", err)
+    }
+    t.Logf("Node2: %s:%d", ip2, port2)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    _, ip3, port3, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start third node: %v", err)
+    }
+    t.Logf("Node3: %s:%d", ip3, port3)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    _, ip4, port4, err := InitializeNode(dhtInstance, key)
+    if err != nil {
+        t.Fatalf("Failed to start fourth node: %v", err)
+    }
+    t.Logf("Node4: %s:%d", ip4, port4)
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Store multiple keys in different nodes
+    err = dhtInstance.DhtPut("key1", "value1", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store key1 in the DHT: %v", err)
+    }
+    t.Logf("Stored 'key1' with value 'value1'")
+
+    err = dhtInstance.DhtPut("key2", "value2", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store key2 in the DHT: %v", err)
+    }
+    t.Logf("Stored 'key2' with value 'value2'")
+
+    err = dhtInstance.DhtPut("key3", "value3", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store key3 in the DHT: %v", err)
+    }
+    t.Logf("Stored 'key3' with value 'value3'")
+
+    err = dhtInstance.DhtPut("key4", "value4", 3600)
+    if err != nil {
+        t.Fatalf("Failed to store key4 in the DHT: %v", err)
+    }
+    t.Logf("Stored 'key4' with value 'value4'")
+
+    // Allow some time for the network to sync
+    time.Sleep(3 * time.Second)
+
+    // Retrieve the values from different nodes
+    retrievedValue, err := dhtInstance.DhtGet("key1")
+    if err != nil || retrievedValue != "value1" {
+        t.Errorf("Failed to retrieve 'key1', expected 'value1', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'key1' with value '%s'", retrievedValue)
+    }
+
+    retrievedValue, err = dhtInstance.DhtGet("key2")
+    if err != nil || retrievedValue != "value2" {
+        t.Errorf("Failed to retrieve 'key2', expected 'value2', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'key2' with value '%s'", retrievedValue)
+    }
+
+    retrievedValue, err = dhtInstance.DhtGet("key3")
+    if err != nil || retrievedValue != "value3" {
+        t.Errorf("Failed to retrieve 'key3', expected 'value3', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'key3' with value '%s'", retrievedValue)
+    }
+
+    retrievedValue, err = dhtInstance.DhtGet("key4")
+    if err != nil || retrievedValue != "value4" {
+        t.Errorf("Failed to retrieve 'key4', expected 'value4', got '%s', error: %v", retrievedValue, err)
+    } else {
+        t.Logf("Successfully retrieved 'key4' with value '%s'", retrievedValue)
+    }
+
+    // Clean up
+    network.StopServer()
+    t.Logf("Network server stopped")
+}
