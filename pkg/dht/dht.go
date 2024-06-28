@@ -1,7 +1,6 @@
 package dht
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net"
@@ -28,35 +27,41 @@ func NewDHT(node *Node) *DHT {
 	}
 }
 
-func (d *DHT) ProcessMessage(data []byte) ([]byte, error) {
-	size := binary.BigEndian.Uint16(data[:2])
-	requestType := binary.BigEndian.Uint16(data[2:4])
-
-	if size != uint16(len(data)) {
-		return nil, errors.New("wrong data size")
+func (d *DHT) ProcessMessage(size uint16, msgType int,data []byte) ([]byte, error) {
+	if len(data) < 4 {
+		return nil, errors.New("data too short to process")
 	}
 
-	switch requestType {
+	fmt.Printf("Processing message: size=%d, requestType=%d, data=%x, len=%d\n", size, msgType, data, len(data))
+
+	if int(size) - 4 != len(data) {
+		return nil, fmt.Errorf("wrong data size: expected %d, got %d", size - 4, len(data))
+	}
+	
+
+	switch msgType {
 	case message.DHT_PING:
-		return d.handlePing(data[4:]), nil
+		return d.handlePing(data), nil
 	case message.DHT_PONG:
-		return d.handlePong(data[4:]), nil
+		return d.handlePong(data), nil
 	case message.DHT_PUT:
 		return d.handlePut(data), nil
 	case message.DHT_GET:
 		return d.handleGet(data), nil
 	case message.DHT_FIND_NODE:
-		return d.handleFindNode(data[4:]), nil
+		return d.handleFindNode(data), nil
 	case message.DHT_FIND_VALUE:
-		return d.handleFindValue(data[4:]), nil
+		return d.handleFindValue(data), nil
 	default:
 		return nil, errors.New("invalid request type")
 	}
 }
 
+
+
 func (d *DHT) handlePing(data []byte) []byte {
 	// Implement Ping logic
-	response, _ := message.NewMessage(message.DHT_PONG, data).Serialize()
+	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_PING, data).Serialize()
 	return response
 }
 
@@ -67,13 +72,13 @@ func (d *DHT) handlePong(data []byte) []byte {
 
 func (d *DHT) handlePut(data []byte) []byte {
 	// Implement Put logic
-	response, _ := message.NewMessage(message.DHT_SUCCESS, []byte("put works")).Serialize()
+	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("put works")).Serialize()
 	return response
 }
 
 func (d *DHT) handleGet(data []byte) []byte {
 	// Implement Get logic
-	response, _ := message.NewMessage(message.DHT_SUCCESS, []byte("get works")).Serialize()
+	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("get works")).Serialize()
 	return response
 }
 

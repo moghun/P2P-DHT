@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
-    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type Network struct {
@@ -27,10 +27,13 @@ func (n *Network) StartServer(ip string, port int) error {
 	}
 	defer ln.Close()
 
+	log.Printf("Server started at %s", addr)
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			return err
+			log.Printf("Error accepting connection: %v", err)
+			continue
 		}
 		go n.handleConnection(conn)
 	}
@@ -43,9 +46,13 @@ func (n *Network) handleConnection(conn net.Conn) {
 	for {
 		length, err := conn.Read(data)
 		if err != nil {
-			log.Printf("Error reading from connection: %v", err)
+			if err.Error() != "EOF" {
+				log.Printf("Error reading from connection: %v", err)
+			}
 			return
 		}
+
+		log.Printf("Received data - connection handler: %x", data[:length])
 
 		msg, err := message.DeserializeMessage(data[:length])
 		if err != nil {
@@ -53,14 +60,30 @@ func (n *Network) handleConnection(conn net.Conn) {
 			return
 		}
 
-		responseData, err := n.dhtInstance.ProcessMessage(msg.Data)
+		x, err := n.dhtInstance.ProcessMessage(msg.Size,msg.Type,msg.Data)
 		if err != nil {
 			log.Printf("Error processing message: %v", err)
 			return
 		}
 
+		responseData, err := message.DeserializeMessage(x)
+
+
 		if responseData != nil {
-			conn.Write(responseData)
+			// Serialize the response message before sending
+			responseMsg := message.NewMessage(uint16(len(responseData.Data) + 4), msg.Type, responseData.Data)
+			serializedResponse, err := responseMsg.Serialize()
+			if err != nil {
+				log.Printf("Error serializing response message: %v", err)
+				return
+			}
+
+			_, err = conn.Write(serializedResponse)
+			if err != nil {
+				log.Printf("Error writing response: %v", err)
+				return
+			}
+			log.Printf("Sent response - connection handler: %x", serializedResponse)
 		}
 	}
 }
@@ -77,6 +100,8 @@ func (n *Network) SendMessage(targetIP string, targetPort int, message []byte) e
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Sent message to %s: %x", addr, message)
 
 	return nil
 }
