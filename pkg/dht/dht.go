@@ -11,33 +11,32 @@ import (
 )
 
 type DHT struct {
-	node     *Node
+	nodes    []*Node
 	kBuckets []*KBucket
 	mu       sync.Mutex
 }
 
-func NewDHT(node *Node) *DHT {
+func NewDHT() *DHT {
 	kBuckets := make([]*KBucket, 160)
 	for i := range kBuckets {
 		kBuckets[i] = NewKBucket()
 	}
 	return &DHT{
-		node:     node,
+		nodes:    []*Node{},
 		kBuckets: kBuckets,
 	}
 }
 
-func (d *DHT) ProcessMessage(size uint16, msgType int,data []byte) ([]byte, error) {
+func (d *DHT) ProcessMessage(size uint16, msgType int, data []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return nil, errors.New("data too short to process")
 	}
 
 	fmt.Printf("Processing message: size=%d, requestType=%d, data=%x, len=%d\n", size, msgType, data, len(data))
 
-	if int(size) - 4 != len(data) {
-		return nil, fmt.Errorf("wrong data size: expected %d, got %d", size - 4, len(data))
+	if int(size)-4 != len(data) {
+		return nil, fmt.Errorf("wrong data size: expected %d, got %d", size-4, len(data))
 	}
-	
 
 	switch msgType {
 	case message.DHT_PING:
@@ -57,38 +56,30 @@ func (d *DHT) ProcessMessage(size uint16, msgType int,data []byte) ([]byte, erro
 	}
 }
 
-
-
 func (d *DHT) HandlePing(data []byte) []byte {
-	// Implement Ping logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_PING, data).Serialize()
 	return response
 }
 
 func (d *DHT) HandlePong(data []byte) []byte {
-	// Implement Pong logic
 	return nil
 }
 
 func (d *DHT) HandlePut(data []byte) []byte {
-	// Implement Put logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("put works")).Serialize()
 	return response
 }
 
 func (d *DHT) HandleGet(data []byte) []byte {
-	// Implement Get logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("get works")).Serialize()
 	return response
 }
 
 func (d *DHT) HandleFindNode(data []byte) []byte {
-	// Implement FindNode logic
 	return nil
 }
 
 func (d *DHT) HandleFindValue(data []byte) []byte {
-	// Implement FindValue logic
 	return nil
 }
 
@@ -103,16 +94,15 @@ func (d *DHT) StartPeriodicLivenessCheck(interval time.Duration) {
 }
 
 func (d *DHT) CheckAllLiveness() {
-	peers := d.node.GetAllPeers()
 	var wg sync.WaitGroup
-	for _, peer := range peers {
+	for _, node := range d.nodes {
 		wg.Add(1)
-		go func(p *Node) {
+		go func(n *Node) {
 			defer wg.Done()
-			if !d.CheckLiveness(p.IP, p.Port, 3*time.Second) {
-				d.node.RemovePeer(p.IP, p.Port)
+			if !d.CheckLiveness(n.IP, n.Port, 3*time.Second) {
+				d.RemoveNode(n)
 			}
-		}(peer)
+		}(node)
 	}
 	wg.Wait()
 }
@@ -124,4 +114,62 @@ func (d *DHT) CheckLiveness(ip string, port int, timeout time.Duration) bool {
 	}
 	conn.Close()
 	return true
+}
+
+func (d *DHT) JoinNetwork(node *Node) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.nodes = append(d.nodes, node)
+	d.AddNodeToBuckets(node)
+}
+
+func (d *DHT) LeaveNetwork(node *Node) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for i, n := range d.nodes {
+		if n.ID == node.ID {
+			d.nodes = append(d.nodes[:i], d.nodes[i+1:]...)
+			d.RemoveNodeFromBuckets(node)
+			return nil
+		}
+	}
+	return errors.New("node not found in the DHT")
+}
+
+func (d *DHT) AddNodeToBuckets(node *Node) {
+	for i := range d.kBuckets {
+		d.kBuckets[i].AddNode(node)
+	}
+}
+
+func (d *DHT) RemoveNode(node *Node) {
+	for i, n := range d.nodes {
+		if n.ID == node.ID {
+			d.nodes = append(d.nodes[:i], d.nodes[i+1:]...)
+			d.RemoveNodeFromBuckets(node)
+			break
+		}
+	}
+}
+
+func (d *DHT) RemoveNodeFromBuckets(node *Node) {
+	for i := range d.kBuckets {
+		d.kBuckets[i].RemoveNode(node.ID)
+	}
+}
+
+func (d *DHT) GetAllPeers() []*Node {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return d.nodes
+}
+
+func (d *DHT) GetKBuckets() []*KBucket {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return d.kBuckets
 }
