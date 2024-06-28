@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
@@ -12,8 +13,10 @@ import (
 )
 
 type Network struct {
-    dhtInstance *dht.DHT
-    listeningPort int
+	dhtInstance   *dht.DHT
+	listeningPort int
+	listener      net.Listener
+	mu            sync.Mutex
 }
 
 func NewNetwork(dhtInstance *dht.DHT) *Network {
@@ -21,28 +24,49 @@ func NewNetwork(dhtInstance *dht.DHT) *Network {
 }
 
 func (n *Network) StartServer(ip string, port int) error {
-    addr := fmt.Sprintf("%s:%d", ip, port)
-    ln, err := net.Listen("tcp", addr)
-    if err != nil {
-        return err
-    }
-    defer ln.Close()
+	addr := fmt.Sprintf("%s:%d", ip, port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
 
-    n.listeningPort = ln.Addr().(*net.TCPAddr).Port
-    log.Printf("Server started at %s", ln.Addr().String())
+	n.mu.Lock()
+	n.listener = ln
+	n.listeningPort = ln.Addr().(*net.TCPAddr).Port
+	n.mu.Unlock()
 
-    for {
-        conn, err := ln.Accept()
-        if err != nil {
-            log.Printf("Error accepting connection: %v", err)
-            continue
-        }
-        go n.handleConnection(conn)
-    }
+	log.Printf("Server started at %s", ln.Addr().String())
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			n.mu.Lock()
+			if n.listener == nil {
+				n.mu.Unlock()
+				return nil
+			}
+			n.mu.Unlock()
+			log.Printf("Error accepting connection: %v", err)
+			continue
+		}
+		go n.handleConnection(conn)
+	}
+}
+
+func (n *Network) StopServer() {
+	n.mu.Lock()
+	if n.listener != nil {
+		n.listener.Close()
+		n.listener = nil
+	}
+	n.mu.Unlock()
+	log.Println("Server stopped")
 }
 
 func (n *Network) GetListeningPort() int {
-    return n.listeningPort
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.listeningPort
 }
 
 func (n *Network) handleConnection(conn net.Conn) {
