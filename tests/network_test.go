@@ -356,12 +356,12 @@ func TestJoinAndLeaveNetworkNModule(t *testing.T) {
 	network.JoinNetwork(node1)
 	network.JoinNetwork(node2)
 
-	peers := dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 2)
+	peers := node1.GetAllPeers()
+	assert.Len(t, peers, 1)
 
 	err = network.LeaveNetwork(node2)
 	assert.Nil(t, err)
 
-	peers = dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 1)
+	peers = node1.GetAllPeers()
+	assert.Len(t, peers, 0)
 }

@@ -60,7 +60,7 @@ func TestPutGetStorage(t *testing.T) {
 	t.Logf("Retrieved value for key1: %s", value)
 }
 
-func TestGetClosestNodes(t *testing.T) {
+func TestGetClosestNodesToCurrNode(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
 	peerID1 := dht.GenerateNodeID("192.168.1.1", 9000)
@@ -69,7 +69,7 @@ func TestGetClosestNodes(t *testing.T) {
 	node.AddPeer(peerID2, "192.168.1.2", 9001)
 
 	targetID := dht.GenerateNodeID("192.168.1.3", 9002)
-	closestNodes := node.GetClosestNodes(targetID, 2)
+	closestNodes := node.GetClosestNodesToCurrNode(targetID, 2)
 
 	assert.Equal(t, 2, len(closestNodes))
 }
@@ -124,7 +124,7 @@ func TestNodeJoinNetwork(t *testing.T) {
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
 	node.JoinNetwork(dhtInstance)
 
-	peers := dhtInstance.GetAllPeers()
+	peers := dhtInstance.GetNumNodes()
 	assert.Equal(t, 1, len(peers))
 	assert.Equal(t, node.ID, peers[0].ID)
 }
@@ -139,6 +139,6 @@ func TestNodeLeaveNetwork(t *testing.T) {
 	err := node.LeaveNetwork(dhtInstance)
 	assert.Nil(t, err)
 
-	peers := dhtInstance.GetAllPeers()
+	peers := dhtInstance.GetNumNodes()
 	assert.Equal(t, 0, len(peers))
 }
