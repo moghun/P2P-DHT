@@ -29,7 +29,7 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
     ttl := 24 * time.Hour
 
 	node := &Node{
-		ID:       generateNodeID(ip, port),
+		ID:       GenerateNodeID(ip, port),
 		IP:       ip,
 		Port:     port,
 		Ping:     ping,
@@ -45,7 +45,7 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
 	return node
 }
 
-func generateNodeID(ip string, port int) string {
+func GenerateNodeID(ip string, port int) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
 	return hex.EncodeToString(h.Sum(nil))
@@ -57,20 +57,35 @@ func (n *Node) setupTLS() {
 
 	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
 		os.MkdirAll(certsDir, os.ModePerm)
-		n.generateCertificates(certsDir)
+		n.GenerateCertificates(certsDir)
 	}
 }
 
-func (n *Node) generateCertificates(certsDir string) {
+func (n *Node) GenerateCertificates(certsDir string) {
 	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", n.IP, n.Port))
 	csrFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", n.IP, n.Port))
 	certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.crt", n.IP, n.Port))
 
-	exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
-	exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-subj", fmt.Sprintf("/CN=%d", n.Port)).Run()
+	fmt.Printf("Generating key: %s\n", keyFile)
+	err := exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
+	if err != nil {
+		fmt.Printf("Error generating key: %v\n", err)
+	}
+
+	fmt.Printf("Generating CSR: %s\n", csrFile)
+	err = exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-subj", fmt.Sprintf("/CN=%d", n.Port)).Run()
+	if err != nil {
+		fmt.Printf("Error generating CSR: %v\n", err)
+	}
+
 	caDir := filepath.Join("certificates", "CA")
-	exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365").Run()
+	fmt.Printf("Generating certificate: %s\n", certFile)
+	err = exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365").Run()
+	if err != nil {
+		fmt.Printf("Error generating certificate: %v\n", err)
+	}
 }
+
 
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	distance := calculateDistance(n.ID, nodeID)
@@ -86,7 +101,7 @@ func (n *Node) AddPeer(nodeID, ip string, port int) {
 }
 
 func (n *Node) RemovePeer(ip string, port int) {
-	nodeID := generateNodeID(ip, port)
+	nodeID := GenerateNodeID(ip, port)
 	distance := calculateDistance(n.ID, nodeID)
 	bucketIndex := getBucketIndex(distance)
 
@@ -107,8 +122,8 @@ func (n *Node) GetAllPeers() []*Node {
 	return peers
 }
 
-func (n *Node) Put(key, value string, ttl int) {
-	n.Storage.Put(key, value, ttl)
+func (n *Node) Put(key, value string, ttl int) error {
+	return n.Storage.Put(key, value, ttl)
 }
 
 func (n *Node) Get(key string) (string, error) {

@@ -38,12 +38,15 @@ func (s *Storage) Put(key, value string, ttl int) error {
 
 	encryptedValue, err := util.Encrypt([]byte(value), s.key)
 	if err != nil {
+		log.Printf("Error encrypting value: %v", err)
 		return err
 	}
+	log.Printf("Encrypted value: %s", encryptedValue)
 
 	hasher := sha1.New()
 	hasher.Write([]byte(encryptedValue))
 	hash := hex.EncodeToString(hasher.Sum(nil))
+	log.Printf("SHA1 hash of encrypted value: %s", hash)
 
 	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.data[key] = &storageItem{
@@ -51,6 +54,7 @@ func (s *Storage) Put(key, value string, ttl int) error {
 		expiry: expiry,
 		hash:   hash,
 	}
+	log.Printf("Stored item: key=%s, value=%s, expiry=%s, hash=%s", key, encryptedValue, expiry.String(), hash)
 	return nil
 }
 
@@ -60,10 +64,12 @@ func (s *Storage) Get(key string) (string, error) {
 
 	item, exists := s.data[key]
 	if !exists {
+		log.Printf("Key not found: %s", key)
 		return "", nil
 	}
 
 	if time.Now().After(item.expiry) {
+		log.Printf("Key expired: %s", key)
 		delete(s.data, key)
 		return "", nil
 	}
@@ -72,14 +78,17 @@ func (s *Storage) Get(key string) (string, error) {
 	hasher.Write([]byte(item.value))
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	if hash != item.hash {
+		log.Printf("Data integrity check failed for key: %s", key)
 		return "", errors.New("data integrity check failed")
 	}
 
 	decryptedValue, err := util.Decrypt(item.value, s.key)
 	if err != nil {
+		log.Printf("Error decrypting value: %v", err)
 		return "", err
 	}
 
+	log.Printf("Decrypted value for key %s: %s", key, decryptedValue)
 	return string(decryptedValue), nil
 }
 
