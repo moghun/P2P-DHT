@@ -22,11 +22,12 @@ type Node struct {
 	Ping     bool
 	Storage  *storage.Storage
 	KBuckets []*KBucket
+	IsDown   bool
 	mu       sync.Mutex
 }
 
 func NewNode(ip string, port int, ping bool, key []byte) *Node {
-    ttl := 24 * time.Hour
+	ttl := 24 * time.Hour
 
 	node := &Node{
 		ID:       GenerateNodeID(ip, port),
@@ -34,6 +35,7 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
 		Port:     port,
 		Ping:     ping,
 		Storage:  storage.NewStorage(ttl, key),
+		IsDown:	  false,
 		KBuckets: make([]*KBucket, 160),
 	}
 
@@ -41,7 +43,11 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
 		node.KBuckets[i] = NewKBucket()
 	}
 
-	node.setupTLS()
+	err := node.SetupTLS()
+	if err != nil {
+		fmt.Printf("Error setting up TLS: %v\n", err)
+		return nil
+	}
 	return node
 }
 
@@ -51,17 +57,34 @@ func GenerateNodeID(ip string, port int) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (n *Node) setupTLS() {
+func (n *Node) SetupTLS() error {
 	tlsDir := fmt.Sprintf("%s_%d", n.IP, n.Port)
 	certsDir := filepath.Join("certificates", tlsDir)
+	caDir := filepath.Join("certificates", "CA")
+
+	// Ensure CA directory exists
+	if _, err := os.Stat(caDir); os.IsNotExist(err) {
+		os.MkdirAll(caDir, os.ModePerm)
+	}
+
+	// Ensure CA files exist
+	if _, err := os.Stat(filepath.Join(caDir, "ca.pem")); os.IsNotExist(err) {
+		return fmt.Errorf("CA certificate not found. Please generate the CA certificate and key.")
+	}
+	if _, err := os.Stat(filepath.Join(caDir, "ca.key")); os.IsNotExist(err) {
+		return fmt.Errorf("CA key not found. Please generate the CA certificate and key.")
+	}
 
 	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
 		os.MkdirAll(certsDir, os.ModePerm)
-		n.GenerateCertificates(certsDir)
+		if err := n.GenerateCertificates(certsDir); err != nil {
+			return fmt.Errorf("failed to generate certificates: %v", err)
+		}
 	}
+	return nil
 }
 
-func (n *Node) GenerateCertificates(certsDir string) {
+func (n *Node) GenerateCertificates(certsDir string) error {
 	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", n.IP, n.Port))
 	csrFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", n.IP, n.Port))
 	certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.crt", n.IP, n.Port))
@@ -69,23 +92,26 @@ func (n *Node) GenerateCertificates(certsDir string) {
 	fmt.Printf("Generating key: %s\n", keyFile)
 	err := exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
 	if err != nil {
-		fmt.Printf("Error generating key: %v\n", err)
+		return fmt.Errorf("error generating key: %v", err)
 	}
 
 	fmt.Printf("Generating CSR: %s\n", csrFile)
 	err = exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-subj", fmt.Sprintf("/CN=%d", n.Port)).Run()
 	if err != nil {
-		fmt.Printf("Error generating CSR: %v\n", err)
+		return fmt.Errorf("error generating CSR: %v", err)
 	}
 
 	caDir := filepath.Join("certificates", "CA")
 	fmt.Printf("Generating certificate: %s\n", certFile)
-	err = exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365").Run()
+	cmd := exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
-		fmt.Printf("Error generating certificate: %v\n", err)
+		return fmt.Errorf("error generating certificate: %v", err)
 	}
+	return nil
 }
-
 
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	distance := calculateDistance(n.ID, nodeID)
@@ -152,7 +178,7 @@ func getBucketIndex(distance uint64) int {
 	return 159 - bits.LeadingZeros64(distance)
 }
 
-func (n *Node) GetClosestNodes(targetID string, k int) []*Node {
+func (n *Node) GetClosestNodesToCurrNode(targetID string, k int) []*Node {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -169,4 +195,12 @@ func (n *Node) GetClosestNodes(targetID string, k int) []*Node {
 		return allNodes[:k]
 	}
 	return allNodes
+}
+
+func (n *Node) JoinNetwork(dhtInstance *DHT) {
+	dhtInstance.JoinNetwork(n)
+}
+
+func (n *Node) LeaveNetwork(dhtInstance *DHT) error {
+	return dhtInstance.LeaveNetwork(n)
 }
