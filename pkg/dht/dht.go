@@ -41,17 +41,17 @@ func (d *DHT) ProcessMessage(size uint16, msgType int,data []byte) ([]byte, erro
 
 	switch msgType {
 	case message.DHT_PING:
-		return d.handlePing(data), nil
+		return d.HandlePing(data), nil
 	case message.DHT_PONG:
-		return d.handlePong(data), nil
+		return d.HandlePong(data), nil
 	case message.DHT_PUT:
-		return d.handlePut(data), nil
+		return d.HandlePut(data), nil
 	case message.DHT_GET:
-		return d.handleGet(data), nil
+		return d.HandleGet(data), nil
 	case message.DHT_FIND_NODE:
-		return d.handleFindNode(data), nil
+		return d.HandleFindNode(data), nil
 	case message.DHT_FIND_VALUE:
-		return d.handleFindValue(data), nil
+		return d.HandleFindValue(data), nil
 	default:
 		return nil, errors.New("invalid request type")
 	}
@@ -59,35 +59,35 @@ func (d *DHT) ProcessMessage(size uint16, msgType int,data []byte) ([]byte, erro
 
 
 
-func (d *DHT) handlePing(data []byte) []byte {
+func (d *DHT) HandlePing(data []byte) []byte {
 	// Implement Ping logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_PING, data).Serialize()
 	return response
 }
 
-func (d *DHT) handlePong(data []byte) []byte {
+func (d *DHT) HandlePong(data []byte) []byte {
 	// Implement Pong logic
 	return nil
 }
 
-func (d *DHT) handlePut(data []byte) []byte {
+func (d *DHT) HandlePut(data []byte) []byte {
 	// Implement Put logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("put works")).Serialize()
 	return response
 }
 
-func (d *DHT) handleGet(data []byte) []byte {
+func (d *DHT) HandleGet(data []byte) []byte {
 	// Implement Get logic
 	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_SUCCESS, []byte("get works")).Serialize()
 	return response
 }
 
-func (d *DHT) handleFindNode(data []byte) []byte {
+func (d *DHT) HandleFindNode(data []byte) []byte {
 	// Implement FindNode logic
 	return nil
 }
 
-func (d *DHT) handleFindValue(data []byte) []byte {
+func (d *DHT) HandleFindValue(data []byte) []byte {
 	// Implement FindValue logic
 	return nil
 }
@@ -97,19 +97,19 @@ func (d *DHT) StartPeriodicLivenessCheck(interval time.Duration) {
 	go func() {
 		for {
 			<-ticker.C
-			d.checkAllLiveness()
+			d.CheckAllLiveness()
 		}
 	}()
 }
 
-func (d *DHT) checkAllLiveness() {
+func (d *DHT) CheckAllLiveness() {
 	peers := d.node.GetAllPeers()
 	var wg sync.WaitGroup
 	for _, peer := range peers {
 		wg.Add(1)
 		go func(p *Node) {
 			defer wg.Done()
-			if !d.checkLiveness(p.IP, p.Port, 3*time.Second) {
+			if !d.CheckLiveness(p.IP, p.Port, 3*time.Second) {
 				d.node.RemovePeer(p.IP, p.Port)
 			}
 		}(peer)
@@ -117,7 +117,7 @@ func (d *DHT) checkAllLiveness() {
 	wg.Wait()
 }
 
-func (d *DHT) checkLiveness(ip string, port int, timeout time.Duration) bool {
+func (d *DHT) CheckLiveness(ip string, port int, timeout time.Duration) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
 	if err != nil {
 		return false
