@@ -22,6 +22,7 @@ type Node struct {
 	Ping     bool
 	Storage  *storage.Storage
 	KBuckets []*KBucket
+	IsDown   bool
 	mu       sync.Mutex
 }
 
@@ -34,6 +35,7 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
 		Port:     port,
 		Ping:     ping,
 		Storage:  storage.NewStorage(ttl, key),
+		IsDown:	  false,
 		KBuckets: make([]*KBucket, 160),
 	}
 
@@ -176,7 +178,7 @@ func getBucketIndex(distance uint64) int {
 	return 159 - bits.LeadingZeros64(distance)
 }
 
-func (n *Node) GetClosestNodes(targetID string, k int) []*Node {
+func (n *Node) GetClosestNodesToCurrNode(targetID string, k int) []*Node {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 

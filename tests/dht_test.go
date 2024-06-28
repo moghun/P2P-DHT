@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +9,44 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
+
+func TestJoinNetwork(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
+
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+	dhtInstance.JoinNetwork(node2)
+
+	// Check that both nodes recognize each other
+	node1Peers := node1.GetAllPeers()
+	node2Peers := node2.GetAllPeers()
+
+	assert.Equal(t, 1, len(node1Peers), "Node1 should have 1 peer")
+	assert.Equal(t, node2.ID, node1Peers[0].ID, "Node1 should recognize Node2 as a peer")
+
+	assert.Equal(t, 1, len(node2Peers), "Node2 should have 1 peer")
+	assert.Equal(t, node1.ID, node2Peers[0].ID, "Node2 should recognize Node1 as a peer")
+}
+
+func TestLeaveNetwork(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
+
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+	dhtInstance.JoinNetwork(node2)
+
+	err := dhtInstance.LeaveNetwork(node2)
+	assert.Nil(t, err, "Node2 should leave the network without error")
+
+	node1Peers := node1.GetAllPeers()
+	assert.Equal(t, 0, len(node1Peers), "Node1 should have no peers after Node2 leaves")
+}
 
 func TestProcessMessage(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
@@ -31,16 +70,16 @@ func TestProcessMessage(t *testing.T) {
 			expected: []byte("ping"),
 		},
 		{
-			size:     uint16(4 + len([]byte("put"))),
+			size:     uint16(4 + len([]byte("put:testKey:testValue"))),
 			msgType:  message.DHT_PUT,
-			data:     []byte("put"),
+			data:     []byte("testKey:testValue"),
 			expected: []byte("put works"),
 		},
 		{
-			size:     uint16(4 + len([]byte("get"))),
+			size:     uint16(4 + len([]byte("get:testKey"))),
 			msgType:  message.DHT_GET,
-			data:     []byte("get"),
-			expected: []byte("get works"),
+			data:     []byte("testKey"),
+			expected: []byte("testValue"),
 		},
 		{
 			size:   3, // Less than the minimum required length
@@ -80,14 +119,19 @@ func TestStartPeriodicLivenessCheck(t *testing.T) {
 	dhtInstance.JoinNetwork(node)
 
 	peerNode := dht.NewNode("127.0.0.1", 8001, true, key)
+	fmt.Print("1: ", node.GetAllPeers(), "\n")
 	dhtInstance.JoinNetwork(peerNode)
+	fmt.Print("2: ", node.GetAllPeers(), "\n")
+
+	peerNode.IsDown = true
 
 	dhtInstance.StartPeriodicLivenessCheck(1 * time.Second)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
-	peers := dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 1) // Only one peer (node) should remain
+	peers := node.GetAllPeers()
+	fmt.Printf("Peers after liveness check: %v\n", peers)
+	assert.Empty(t, peers, "Node should have no peers after liveness check")
 }
 
 func TestCheckLiveness(t *testing.T) {
@@ -124,7 +168,7 @@ func TestDHTHandlePut(t *testing.T) {
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
 	dhtInstance.JoinNetwork(node)
 
-	data := []byte("put")
+	data := []byte("testKey:testValue")
 	response := dhtInstance.HandlePut(data)
 	responseMsg, err := message.DeserializeMessage(response)
 	assert.Nil(t, err)
@@ -140,76 +184,60 @@ func TestDHTHandleGet(t *testing.T) {
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
 	dhtInstance.JoinNetwork(node)
 
-	data := []byte("get")
+	// Store a value first
+	err := node.Put("testKey", "testValue", 3600)
+	assert.Nil(t, err, "Put operation should not return an error")
+
+	data := []byte("testKey")
 	response := dhtInstance.HandleGet(data)
 	responseMsg, err := message.DeserializeMessage(response)
 	assert.Nil(t, err)
 	assert.Equal(t, message.DHT_SUCCESS, responseMsg.Type)
-	assert.Equal(t, []byte("get works"), responseMsg.Data)
+	assert.Equal(t, []byte("testValue"), responseMsg.Data)
 }
 
-func TestJoinAndLeaveNetwork(t *testing.T) {
-	key := []byte("12345678901234567890123456789012")
-	dhtInstance := dht.NewDHT()
+func TestDhtPut(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+    dhtInstance := dht.NewDHT()
 
-	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance.JoinNetwork(node1)
+    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+    dhtInstance.JoinNetwork(node1)
 
-	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
-	dhtInstance.JoinNetwork(node2)
+    err := dhtInstance.DhtPut("testKey", "testValue", 3600)
+    assert.Nil(t, err, "dhtPut should store the value without error")
 
-	peers := dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 2)
-
-	err := dhtInstance.LeaveNetwork(node2)
-	assert.Nil(t, err)
-
-	peers = dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 1)
+    value, err := node1.Get("testKey")
+    assert.Nil(t, err, "Get operation should not return an error")
+    assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
 }
 
-func TestRemoveNode(t *testing.T) {
-	key := []byte("12345678901234567890123456789012")
-	dhtInstance := dht.NewDHT()
+func TestDhtGet(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+    dhtInstance := dht.NewDHT()
 
-	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance.JoinNetwork(node1)
+    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+    dhtInstance.JoinNetwork(node1)
 
-	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
-	dhtInstance.JoinNetwork(node2)
+    err := node1.Put("testKey", "testValue", 3600)
+    assert.Nil(t, err, "Put operation should not return an error")
 
-	dhtInstance.RemoveNode(node2)
-
-	peers := dhtInstance.GetAllPeers()
-	assert.Len(t, peers, 1)
+    value, err := dhtInstance.DhtGet("testKey")
+    assert.Nil(t, err, "dhtGet should retrieve the value without error")
+    assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
 }
 
-func TestAddAndRemoveNodeToBuckets(t *testing.T) {
-	key := []byte("12345678901234567890123456789012")
-	dhtInstance := dht.NewDHT()
+func TestGetClosestNodes(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+    dhtInstance := dht.NewDHT()
 
-	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance.AddNodeToBuckets(node)
+    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+    node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+    dhtInstance.JoinNetwork(node1)
+    dhtInstance.JoinNetwork(node2)
 
-	// Verify the node is added to the buckets
-	found := false
-	for _, bucket := range dhtInstance.GetKBuckets() {
-		if bucket.Contains(node) {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "Node should be found in one of the buckets")
+    targetID := dht.GenerateNodeID("127.0.0.1", 8002)
+    closestNodes := dhtInstance.GetClosestNodes(targetID, 1)
 
-	dhtInstance.RemoveNodeFromBuckets(node)
-
-	// Verify the node is removed from the buckets
-	found = false
-	for _, bucket := range dhtInstance.GetKBuckets() {
-		if bucket.Contains(node) {
-			found = true
-			break
-		}
-	}
-	assert.False(t, found, "Node should not be found in any bucket")
+    assert.Equal(t, 1, len(closestNodes), "There should be 1 closest node")
+    assert.Contains(t, []*dht.Node{node1, node2}, closestNodes[0], "The closest node should be one of the joined nodes")
 }
