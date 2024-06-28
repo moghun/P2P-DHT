@@ -12,7 +12,8 @@ import (
 )
 
 type Network struct {
-	dhtInstance *dht.DHT
+    dhtInstance *dht.DHT
+    listeningPort int
 }
 
 func NewNetwork(dhtInstance *dht.DHT) *Network {
@@ -20,23 +21,28 @@ func NewNetwork(dhtInstance *dht.DHT) *Network {
 }
 
 func (n *Network) StartServer(ip string, port int) error {
-	addr := fmt.Sprintf("%s:%d", ip, port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	defer ln.Close()
+    addr := fmt.Sprintf("%s:%d", ip, port)
+    ln, err := net.Listen("tcp", addr)
+    if err != nil {
+        return err
+    }
+    defer ln.Close()
 
-	log.Printf("Server started at %s", addr)
+    n.listeningPort = ln.Addr().(*net.TCPAddr).Port
+    log.Printf("Server started at %s", ln.Addr().String())
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("Error accepting connection: %v", err)
-			continue
-		}
-		go n.handleConnection(conn)
-	}
+    for {
+        conn, err := ln.Accept()
+        if err != nil {
+            log.Printf("Error accepting connection: %v", err)
+            continue
+        }
+        go n.handleConnection(conn)
+    }
+}
+
+func (n *Network) GetListeningPort() int {
+    return n.listeningPort
 }
 
 func (n *Network) handleConnection(conn net.Conn) {
