@@ -116,3 +116,29 @@ func TestGenerateCertificates(t *testing.T) {
 
 	assert.False(t, os.IsNotExist(err), "Cert file does not exist")
 }
+
+func TestNodeJoinNetwork(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node := dht.NewNode("127.0.0.1", 8000, true, key)
+	node.JoinNetwork(dhtInstance)
+
+	peers := dhtInstance.GetAllPeers()
+	assert.Equal(t, 1, len(peers))
+	assert.Equal(t, node.ID, peers[0].ID)
+}
+
+func TestNodeLeaveNetwork(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node := dht.NewNode("127.0.0.1", 8000, true, key)
+	node.JoinNetwork(dhtInstance)
+
+	err := node.LeaveNetwork(dhtInstance)
+	assert.Nil(t, err)
+
+	peers := dhtInstance.GetAllPeers()
+	assert.Equal(t, 0, len(peers))
+}

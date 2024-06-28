@@ -4,16 +4,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestProcessMessage(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
 	message.SetEncryptionKey(key)
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	tests := []struct {
 		size     uint16
@@ -72,24 +74,28 @@ func TestProcessMessage(t *testing.T) {
 
 func TestStartPeriodicLivenessCheck(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	peerNode := dht.NewNode("127.0.0.1", 8001, true, key)
-	node.AddPeer(peerNode.ID, peerNode.IP, peerNode.Port)
+	dhtInstance.JoinNetwork(peerNode)
 
 	dhtInstance.StartPeriodicLivenessCheck(1 * time.Second)
 
 	time.Sleep(2 * time.Second)
 
-	peers := node.GetAllPeers()
-	assert.Empty(t, peers)
+	peers := dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 1) // Only one peer (node) should remain
 }
 
 func TestCheckLiveness(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	assert.False(t, dhtInstance.CheckLiveness("127.0.0.1", 9999, 1*time.Second))
 }
@@ -97,8 +103,10 @@ func TestCheckLiveness(t *testing.T) {
 func TestDHTHandlePing(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
 	message.SetEncryptionKey(key)
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	data := []byte("ping")
 	response := dhtInstance.HandlePing(data)
@@ -111,8 +119,10 @@ func TestDHTHandlePing(t *testing.T) {
 func TestDHTHandlePut(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
 	message.SetEncryptionKey(key)
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	data := []byte("put")
 	response := dhtInstance.HandlePut(data)
@@ -125,8 +135,10 @@ func TestDHTHandlePut(t *testing.T) {
 func TestDHTHandleGet(t *testing.T) {
 	key := []byte("12345678901234567890123456789012")
 	message.SetEncryptionKey(key)
+	dhtInstance := dht.NewDHT()
+
 	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance := dht.NewDHT(node)
+	dhtInstance.JoinNetwork(node)
 
 	data := []byte("get")
 	response := dhtInstance.HandleGet(data)
@@ -134,4 +146,70 @@ func TestDHTHandleGet(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, message.DHT_SUCCESS, responseMsg.Type)
 	assert.Equal(t, []byte("get works"), responseMsg.Data)
+}
+
+func TestJoinAndLeaveNetwork(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
+
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+	dhtInstance.JoinNetwork(node2)
+
+	peers := dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 2)
+
+	err := dhtInstance.LeaveNetwork(node2)
+	assert.Nil(t, err)
+
+	peers = dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 1)
+}
+
+func TestRemoveNode(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
+
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+	dhtInstance.JoinNetwork(node2)
+
+	dhtInstance.RemoveNode(node2)
+
+	peers := dhtInstance.GetAllPeers()
+	assert.Len(t, peers, 1)
+}
+
+func TestAddAndRemoveNodeToBuckets(t *testing.T) {
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
+
+	node := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.AddNodeToBuckets(node)
+
+	// Verify the node is added to the buckets
+	found := false
+	for _, bucket := range dhtInstance.GetKBuckets() {
+		if bucket.Contains(node) {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Node should be found in one of the buckets")
+
+	dhtInstance.RemoveNodeFromBuckets(node)
+
+	// Verify the node is removed from the buckets
+	found = false
+	for _, bucket := range dhtInstance.GetKBuckets() {
+		if bucket.Contains(node) {
+			found = true
+			break
+		}
+	}
+	assert.False(t, found, "Node should not be found in any bucket")
 }
