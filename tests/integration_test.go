@@ -508,3 +508,90 @@ func TestMultipleKeysAndNodes(t *testing.T) {
     network.StopServer()
     t.Logf("Network server stopped")
 }
+
+func TestMultipleNodesDataConsistency(t *testing.T) {
+    key := []byte("12345678901234567890123456789012")
+
+    // Initialize a single DHT instance
+    dhtInstance := dht.NewDHT()
+
+    // Initialize a single network instance
+    network := networking.NewNetwork(dhtInstance)
+
+    // Start the network server once
+    go func() {
+        if err := network.StartServer("127.0.0.1", 0); err != nil {
+            t.Fatalf("Failed to start network server: %v", err)
+        }
+    }()
+    time.Sleep(1 * time.Second) // Ensure server starts
+
+    // Function to initialize multiple nodes
+    initializeNodes := func(count int) []*dht.Node {
+        nodes := []*dht.Node{}
+        for i := 0; i < count; i++ {
+            node, ip, port, err := InitializeNode(dhtInstance, key)
+            if err != nil {
+                t.Fatalf("Failed to start node %d: %v", i+1, err)
+            }
+            t.Logf("Node%d: %s:%d", i+1, ip, port)
+            nodes = append(nodes, node)
+            time.Sleep(1 * time.Second) // Ensure server starts
+        }
+        return nodes
+    }
+
+    // Start ten nodes
+    nodes := initializeNodes(10)
+
+    // Store multiple keys in different nodes
+    keys := []string{"key1", "key2", "key3", "key4", "key5", "key6", "key7", "key8", "key9", "key10"}
+    values := []string{"value1", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10"}
+
+    for i := 0; i < len(keys); i++ {
+        err := dhtInstance.DhtPut(keys[i], values[i], 3600)
+        if err != nil {
+            t.Fatalf("Failed to store %s in the DHT: %v", keys[i], err)
+        }
+        t.Logf("Stored '%s' with value '%s'", keys[i], values[i])
+    }
+
+    // Allow some time for the network to sync
+    time.Sleep(3 * time.Second)
+
+    // Retrieve the values from different nodes
+    for i := 0; i < len(keys); i++ {
+        retrievedValue, err := dhtInstance.DhtGet(keys[i])
+        if err != nil || retrievedValue != values[i] {
+            t.Errorf("Failed to retrieve '%s', expected '%s', got '%s', error: %v", keys[i], values[i], retrievedValue, err)
+        } else {
+            t.Logf("Successfully retrieved '%s' with value '%s'", keys[i], retrievedValue)
+        }
+    }
+
+    // Simulate node failures
+    for i := 0; i < 5; i++ { // Remove first 5 nodes
+        err := dhtInstance.LeaveNetwork(nodes[i])
+        if err != nil {
+            t.Fatalf("Failed to remove node%d: %v", i+1, err)
+        }
+        t.Logf("Node%d left the network", i+1)
+    }
+
+    // Allow some time for the network to sync
+    time.Sleep(3 * time.Second)
+
+    // Verify that the values can still be retrieved from the remaining nodes
+    for i := 0; i < len(keys); i++ {
+        retrievedValue, err := dhtInstance.DhtGet(keys[i])
+        if err != nil || retrievedValue != values[i] {
+            t.Errorf("Failed to retrieve '%s' after node failures, expected '%s', got '%s', error: %v", keys[i], values[i], retrievedValue, err)
+        } else {
+            t.Logf("Successfully retrieved '%s' with value '%s' after node failures", keys[i], retrievedValue)
+        }
+    }
+
+    // Clean up
+    network.StopServer()
+    t.Logf("Network server stopped")
+}

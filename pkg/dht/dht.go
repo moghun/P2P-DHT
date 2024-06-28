@@ -14,6 +14,10 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
+const (
+	replicationFactor = 3 // Number of replicas for each data item
+)
+
 type DHT struct {
 	nodes    []*Node
 	kBuckets []*KBucket
@@ -187,6 +191,12 @@ func (d *DHT) RemoveNode(node *Node) {
 		}
 	}
 
+	// Re-distribute the node's data
+	for key, value := range node.Storage.GetAll() {
+		fmt.Printf("Re-distributing key '%s' after removing node %s:%d\n", key, node.IP, node.Port)
+		_ = d.redistributeKey(key, value, 3600)
+	}
+
 	// Remove the node from each k-bucket
 	fmt.Printf("Removing node %s:%d from k-buckets\n", node.IP, node.Port)
 	d.RemoveNodeFromBuckets(node)
@@ -197,6 +207,23 @@ func (d *DHT) RemoveNode(node *Node) {
 	}
 }
 
+func (d *DHT) redistributeKey(key, value string, ttl int) error {
+	hash := sha256.Sum256([]byte(key))
+	targetID := hex.EncodeToString(hash[:])
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return errors.New("no suitable node found for storing the key")
+	}
+
+	var err error
+	for _, node := range closestNodes {
+		err = node.Put(key, value, ttl)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (d *DHT) JoinNetwork(node *Node) {
 	d.mu.Lock()
@@ -262,23 +289,38 @@ func (d *DHT) GetKBuckets() []*KBucket {
 func (d *DHT) DhtPut(key, value string, ttl int) error {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
-	closestNodes := d.GetClosestNodes(targetID, 1)
-	if len(closestNodes) > 0 {
-		targetNode := closestNodes[0]
-		return targetNode.Put(key, value, ttl)
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return errors.New("no suitable node found for storing the key")
 	}
-	return errors.New("no suitable node found for storing the key")
+
+	var err error
+	for _, node := range closestNodes {
+		err = node.Put(key, value, ttl)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *DHT) DhtGet(key string) (string, error) {
 	hash := sha256.Sum256([]byte(key))
 	targetID := hex.EncodeToString(hash[:])
-	closestNodes := d.GetClosestNodes(targetID, 1)
-	if len(closestNodes) > 0 {
-		targetNode := closestNodes[0]
-		return targetNode.Get(key)
+	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
+	if len(closestNodes) == 0 {
+		return "", errors.New("no suitable node found for retrieving the key")
 	}
-	return "", errors.New("no suitable node found for retrieving the key")
+
+	var value string
+	var err error
+	for _, node := range closestNodes {
+		value, err = node.Get(key)
+		if err == nil {
+			return value, nil
+		}
+	}
+	return "", err
 }
 
 func (d *DHT) GetClosestNodes(targetID string, k int) []*Node {

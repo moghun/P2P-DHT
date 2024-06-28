@@ -98,7 +98,7 @@ func (s *Storage) cleanupExpired() {
 
 	for key, item := range s.data {
 		if time.Now().After(item.expiry) {
-			log.Printf("Cleaning up expired item with key: %s", key) // Add debug log
+			log.Printf("Cleaning up expired item with key: %s", key)
 			delete(s.data, key)
 		}
 	}
@@ -112,4 +112,21 @@ func (s *Storage) StartCleanup(interval time.Duration) {
 			s.cleanupExpired()
 		}
 	}()
+}
+
+// GetAll returns all key-value pairs from the storage, decrypting the values before returning
+func (s *Storage) GetAll() map[string]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	allData := make(map[string]string)
+	for key, item := range s.data {
+		decryptedValue, err := util.Decrypt(item.value, s.key)
+		if err != nil {
+			log.Printf("Error decrypting value for key %s: %v", key, err)
+			continue
+		}
+		allData[key] = string(decryptedValue)
+	}
+	return allData
 }
