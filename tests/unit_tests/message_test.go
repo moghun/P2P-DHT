@@ -10,7 +10,7 @@ import (
 func TestSerializeAndDeserializeMessage(t *testing.T) {
 	key, _ := util.GenerateRandomKey()
 	message.SetEncryptionKey(key)
-	originalMessage := message.NewMessage(message.DHT_PUT, []byte("test data"))
+	originalMessage := message.NewMessage(uint16(len([]byte("test data"))+4),message.DHT_PUT, []byte("test data"))
 
 	serialized, err := originalMessage.Serialize()
 	if err != nil {
@@ -34,7 +34,7 @@ func TestSerializeAndDeserializeMessage(t *testing.T) {
 func TestSerializeAndDeserializeEncryptedMessage(t *testing.T) {
 	key, _ := util.GenerateRandomKey()
 	message.SetEncryptionKey(key)
-	originalMessage := message.NewMessage(message.DHT_PUT, []byte("test data"))
+	originalMessage := message.NewMessage(uint16(len([]byte("test data"))+4), message.DHT_PUT, []byte("test data"))
 
 	serialized, err := originalMessage.Serialize()
 	if err != nil {
@@ -52,5 +52,17 @@ func TestSerializeAndDeserializeEncryptedMessage(t *testing.T) {
 
 	if string(originalMessage.Data) != string(deserializedMessage.Data) {
 		t.Errorf("Expected message data %s, got %s", originalMessage.Data, deserializedMessage.Data)
+	}
+}
+
+func TestDeserializeInvalidData(t *testing.T) {
+	key, _ := util.GenerateRandomKey()
+	message.SetEncryptionKey(key)
+
+	invalidData := []byte("invalid data")
+
+	_, err := message.DeserializeMessage(invalidData)
+	if err == nil {
+		t.Fatalf("Deserialization should have failed for invalid data")
 	}
 }
