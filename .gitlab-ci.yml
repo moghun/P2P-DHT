@@ -1,0 +1,89 @@
+stages:
+  - setup
+  - format
+  - lint
+  - build
+  - test
+  - report
+  - cleanup
+
+variables:
+  TEST_REPORT_DIR: test_results
+  TEST_REPORT: ${TEST_REPORT_DIR}/test_result_report.xml
+  TEST_OUTPUT: ${TEST_REPORT_DIR}/test_output.txt
+
+setup:
+  stage: setup
+  image: golang:1.19
+  script:
+    - go mod tidy
+    - go mod vendor
+    - mkdir -p certificates/CA
+    - mkdir -p certificates/test
+    - mkdir -p ${TEST_REPORT_DIR}
+    - apt-get update
+    - apt-get install -y python3 python3-pip xsltproc
+    - pip3 install -r project_utils/requirements.txt
+  artifacts:
+    paths:
+      - vendor/
+      - certificates/
+      - ${TEST_REPORT_DIR}/
+
+format:
+  stage: format
+  image: golang:1.19
+  script:
+    - make fmt
+  artifacts:
+    paths:
+      - .
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:v1.43.0
+  script:
+    - make lint
+  artifacts:
+    paths:
+      - .
+
+build:
+  stage: build
+  image: golang:1.19
+  script:
+    - make build
+  artifacts:
+    paths:
+      - dht-node
+
+test:
+  stage: test
+  image: golang:1.19
+  script:
+    - make test
+  artifacts:
+    paths:
+      - ${TEST_REPORT_DIR}/
+    reports:
+      junit: ${TEST_REPORT}
+
+report:
+  stage: report
+  image: python:3.9
+  script:
+    - xsltproc ./project_utils/junit-xml-to-html.xsl ${TEST_REPORT} > ${TEST_REPORT_DIR}/test_result_report.html
+  artifacts:
+    paths:
+      - ${TEST_REPORT_DIR}/test_result_report.html
+
+cleanup:
+  stage: cleanup
+  image: alpine
+  script:
+    - make clean-certs
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - certificates/
+      - tests/certificates/
