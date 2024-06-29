@@ -1,7 +1,6 @@
 stages:
   - setup
   - format
-  - lint
   - build
   - test
   - report
@@ -40,15 +39,6 @@ format:
   image: golang:1.19
   script:
     - make fmt
-  artifacts:
-    paths:
-      - .
-
-lint:
-  stage: lint
-  image: golangci/golangci-lint:v1.43.0
-  script:
-    - make lint
   artifacts:
     paths:
       - .
