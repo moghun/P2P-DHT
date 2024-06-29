@@ -56,6 +56,7 @@ test:
   stage: test
   image: golang:1.19
   before_script:
+    - go install github.com/jstemmer/go-junit-report@latest
     - . ${VENV_DIR}/bin/activate
   script:
     - make test
