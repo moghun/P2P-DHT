@@ -17,7 +17,7 @@ setup:
   image: golang:1.19
   before_script:
     - apt-get update
-    - apt-get install -y python3 python3-pip python3-venv xsltproc
+    - apt-get install -y python3 python3-pip python3-venv
     - python3 -m venv ${VENV_DIR}
     - . ${VENV_DIR}/bin/activate
     - pip install -r project_utils/requirements.txt
@@ -70,6 +70,7 @@ report:
   stage: report
   image: python:3.9
   before_script:
+    - apt-get update && apt-get install -y xsltproc
     - . ${VENV_DIR}/bin/activate
   script:
     - xsltproc ./project_utils/junit-xml-to-html.xsl ${TEST_REPORT} > ${TEST_REPORT_DIR}/test_result_report.html
