@@ -11,24 +11,29 @@ variables:
   TEST_REPORT_DIR: test_results
   TEST_REPORT: ${TEST_REPORT_DIR}/test_result_report.xml
   TEST_OUTPUT: ${TEST_REPORT_DIR}/test_output.txt
+  VENV_DIR: venv
 
 setup:
   stage: setup
   image: golang:1.19
+  before_script:
+    - apt-get update
+    - apt-get install -y python3 python3-pip python3-venv xsltproc
+    - python3 -m venv ${VENV_DIR}
+    - . ${VENV_DIR}/bin/activate
+    - pip install -r project_utils/requirements.txt
   script:
     - go mod tidy
     - go mod vendor
     - mkdir -p certificates/CA
     - mkdir -p certificates/test
     - mkdir -p ${TEST_REPORT_DIR}
-    - apt-get update
-    - apt-get install -y python3 python3-pip xsltproc
-    - pip3 install -r project_utils/requirements.txt
   artifacts:
     paths:
       - vendor/
       - certificates/
       - ${TEST_REPORT_DIR}/
+      - ${VENV_DIR}/
 
 format:
   stage: format
@@ -60,6 +65,8 @@ build:
 test:
   stage: test
   image: golang:1.19
+  before_script:
+    - . ${VENV_DIR}/bin/activate
   script:
     - make test
   artifacts:
@@ -71,6 +78,8 @@ test:
 report:
   stage: report
   image: python:3.9
+  before_script:
+    - . ${VENV_DIR}/bin/activate
   script:
     - xsltproc ./project_utils/junit-xml-to-html.xsl ${TEST_REPORT} > ${TEST_REPORT_DIR}/test_result_report.html
   artifacts:
