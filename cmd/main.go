@@ -55,5 +55,4 @@ func main() {
 	sig := <-sigChan
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
-	// Additional shutdown logic if necessary
 }
