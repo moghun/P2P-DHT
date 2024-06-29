@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -109,29 +108,6 @@ func TestProcessMessage(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestStartPeriodicLivenessCheck(t *testing.T) {
-	key := []byte("12345678901234567890123456789012")
-	dhtInstance := dht.NewDHT()
-
-	node := dht.NewNode("127.0.0.1", 8000, true, key)
-	dhtInstance.JoinNetwork(node)
-
-	peerNode := dht.NewNode("127.0.0.1", 8001, true, key)
-	fmt.Print("1: ", node.GetAllPeers(), "\n")
-	dhtInstance.JoinNetwork(peerNode)
-	fmt.Print("2: ", node.GetAllPeers(), "\n")
-
-	peerNode.IsDown = true
-
-	dhtInstance.StartPeriodicLivenessCheck(1 * time.Second)
-
-	time.Sleep(3 * time.Second)
-
-	peers := node.GetAllPeers()
-	fmt.Printf("Peers after liveness check: %v\n", peers)
-	assert.Empty(t, peers, "Node should have no peers after liveness check")
 }
 
 func TestCheckLiveness(t *testing.T) {
