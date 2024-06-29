@@ -81,6 +81,8 @@ report:
 cleanup:
   stage: cleanup
   image: alpine
+  before_script:
+    - apk add --no-cache make
   script:
     - make clean-certs
   artifacts:
