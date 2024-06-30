@@ -2,21 +2,25 @@ package networking
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
-	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 type Network struct {
-	dhtInstance   *dht.DHT
-	listeningPort int
-	listener      net.Listener
-	mu            sync.Mutex
+	dhtInstance 	*dht.DHT
+	listener    	net.Listener
+	mu          	sync.Mutex
+	ServerCertFile 	string
+	ServerKeyFile 	string
 }
 
 func NewNetwork(dhtInstance *dht.DHT) *Network {
@@ -24,18 +28,29 @@ func NewNetwork(dhtInstance *dht.DHT) *Network {
 }
 
 func (n *Network) StartServer(ip string, port int) error {
+	certFile, keyFile, err := util.GenerateCertificates(ip, port)
+	n.ServerCertFile = certFile
+	n.ServerKeyFile = keyFile
+	if err != nil {
+		return fmt.Errorf("failed to generate certificates: %v", err)
+	}
+
+	tlsConfig, err := n.LoadTLSConfig(certFile, keyFile)
+	if err != nil {
+		return fmt.Errorf("failed to load TLS config: %v", err)
+	}
+
 	addr := fmt.Sprintf("%s:%d", ip, port)
-	ln, err := net.Listen("tcp", addr)
+	ln, err := tls.Listen("tcp", addr, tlsConfig)
 	if err != nil {
 		return err
 	}
 
 	n.mu.Lock()
 	n.listener = ln
-	n.listeningPort = ln.Addr().(*net.TCPAddr).Port
 	n.mu.Unlock()
 
-	log.Printf("Server started at %s", ln.Addr().String())
+	fmt.Printf("Server started at %s\n", ln.Addr().String())
 
 	for {
 		conn, err := ln.Accept()
@@ -46,7 +61,7 @@ func (n *Network) StartServer(ip string, port int) error {
 				return nil
 			}
 			n.mu.Unlock()
-			log.Printf("Error accepting connection: %v", err)
+			fmt.Printf("Error accepting connection: %v\n", err)
 			continue
 		}
 		go n.handleConnection(conn)
@@ -64,9 +79,12 @@ func (n *Network) StopServer() {
 }
 
 func (n *Network) GetListeningPort() int {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	return n.listeningPort
+    n.mu.Lock()
+    defer n.mu.Unlock()
+    if n.listener == nil {
+        return 0
+    }
+    return n.listener.Addr().(*net.TCPAddr).Port
 }
 
 func (n *Network) handleConnection(conn net.Conn) {
@@ -90,7 +108,7 @@ func (n *Network) handleConnection(conn net.Conn) {
 			return
 		}
 
-		x, err := n.dhtInstance.ProcessMessage(msg.Size,msg.Type,msg.Data)
+		x, err := n.dhtInstance.ProcessMessage(msg.Size, msg.Type, msg.Data)
 		if err != nil {
 			log.Printf("Error processing message: %v", err)
 			return
@@ -98,10 +116,9 @@ func (n *Network) handleConnection(conn net.Conn) {
 
 		responseData, err := message.DeserializeMessage(x)
 
-
 		if responseData != nil {
 			// Serialize the response message before sending
-			responseMsg := message.NewMessage(uint16(len(responseData.Data) + 4), msg.Type, responseData.Data)
+			responseMsg := message.NewMessage(uint16(len(responseData.Data)+4), msg.Type, responseData.Data)
 			serializedResponse, err := responseMsg.Serialize()
 			if err != nil {
 				log.Printf("Error serializing response message: %v", err)
@@ -118,9 +135,14 @@ func (n *Network) handleConnection(conn net.Conn) {
 	}
 }
 
-func (n *Network) SendMessage(targetIP string, targetPort int, message []byte) error {
+func (n *Network) SendMessage(targetIP string, targetPort int, message []byte, certFile, keyFile string) error {
+	tlsConfig, err := n.LoadTLSConfig(certFile, keyFile)
+	if err != nil {
+		return fmt.Errorf("failed to load TLS config: %v", err)
+	}
+
 	addr := fmt.Sprintf("%s:%d", targetIP, targetPort)
-	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -131,7 +153,7 @@ func (n *Network) SendMessage(targetIP string, targetPort int, message []byte) e
 		return err
 	}
 
-	log.Printf("Sent message to %s: %x", addr, message)
+	fmt.Printf("Sent message to %s: %x\n", addr, message)
 
 	return nil
 }
@@ -141,7 +163,23 @@ func (n *Network) LoadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+
+	// Load CA certificate
+	caCertFile := filepath.Join("certificates", "CA", "ca.pem")
+	caCert, err := os.ReadFile(caCertFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate: %v", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to add CA certificate to pool")
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}, nil
 }
 
 func (n *Network) JoinNetwork(node *dht.Node) {

@@ -53,6 +53,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
+	network.StopServer()
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
 }

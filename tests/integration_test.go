@@ -21,30 +21,7 @@ func TestNodeInitializationAndConfig(t *testing.T) {
     }
 }
 
-func TestNetworkMessagePassing(t *testing.T) {
-    key := []byte("12345678901234567890123456789012")
-    dhtInstance := dht.NewDHT()
-    _, network, ip, port, err := startNodeWithDynamicPort(dhtInstance, key)
-    if err != nil {
-        t.Fatalf("Failed to start node: %v", err)
-    }
-
-    go func() {
-        err := network.StartServer(ip, port)
-        if err != nil {
-            t.Errorf("Failed to start server: %v", err)
-        }
-    }()
-    time.Sleep(1 * time.Second) // Wait for server to start
-
-    err = network.SendMessage(ip, port, []byte("Hello"))
-    if err != nil {
-        t.Errorf("Failed to send message through network: %v", err)
-    }
-
-    network.StopServer()
-}
-
+ 
 func TestDHTWithStorage(t *testing.T) {
     key := []byte("12345678901234567890123456789012")
     storageInstance := storage.NewStorage(24*time.Hour, key)
@@ -86,7 +63,9 @@ func NetworkStorageIntegration(t *testing.T) {
         t.Fatalf("Failed to retrieve the dynamic port")
     }
 
-    err = network.SendMessage(ip, actualPort, []byte("Test message for complete integration"))
+    mockCert, mockKey, _ := util.GenerateCertificates(ip, actualPort)
+
+    err = network.SendMessage(ip, actualPort, []byte("Test message for complete integration"), mockCert, mockKey)
     if err != nil {
         t.Errorf("Failed to send message in network: %v", err)
     }

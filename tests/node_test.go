@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 func TestNewNode(t *testing.T) {
@@ -84,11 +85,12 @@ func TestSetupTLS(t *testing.T) {
 	_, err := os.Stat(certsDir)
 	assert.False(t, os.IsNotExist(err))
 }
-func TestGenerateCertificates(t *testing.T) {
-	key := []byte("12345678901234567890123456789012")
-	node := dht.NewNode("127.0.0.1", 8000, true, key)
 
-	tlsDir := fmt.Sprintf("%s_%d", node.IP, node.Port)
+func TestGenerateCertificates(t *testing.T) {
+	ip := "127.0.0.1"
+	port := 8000
+
+	tlsDir := fmt.Sprintf("%s_%d", ip, port)
 	certsDir := filepath.Join("certificates", tlsDir)
 
 	err := os.MkdirAll(certsDir, os.ModePerm)
@@ -96,10 +98,10 @@ func TestGenerateCertificates(t *testing.T) {
 		t.Fatalf("Failed to create certsDir: %v", err)
 	}
 
-	node.GenerateCertificates(certsDir)
-
-	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", node.IP, node.Port))
-	certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", node.IP, node.Port))
+	certFile, keyFile, err := util.GenerateCertificates(ip, port)
+	if err != nil {
+		t.Fatalf("Failed to generate certificates: %v", err)
+	}
 
 	_, err = os.Stat(keyFile)
 	if os.IsNotExist(err) {

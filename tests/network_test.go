@@ -3,19 +3,19 @@ package tests
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"math/big"
-	"net"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/networking"
-	"github.com/stretchr/testify/assert"
 )
 
 func generateKeyPair(bits int) (*rsa.PrivateKey, error) {
@@ -74,89 +74,61 @@ func createCertificate(certFile, keyFile string) error {
 }
 
 func TestStartServer(t *testing.T) {
-	key := make([]byte, 32) // AES-256 key size
-	_, err := rand.Read(key)
-	if err != nil {
-		t.Fatalf("Failed to generate encryption key: %v", err)
-	}
+    key := make([]byte, 32)
+    _, err := rand.Read(key)
+    assert.NoError(t, err)
 
-	dhtInstance := dht.NewDHT()
+    dhtInstance := dht.NewDHT()
+    node := dht.NewNode("127.0.0.1", 0, false, key)
+    assert.NotNil(t, node)
 
-	node := dht.NewNode("127.0.0.1", 8000, false, key)
-	dhtInstance.JoinNetwork(node)
+    network := networking.NewNetwork(dhtInstance)
+    assert.NotNil(t, network)
 
-	network := networking.NewNetwork(dhtInstance)
+    go func() {
+        err := network.StartServer("127.0.0.1", 0)
+        assert.NoError(t, err)
+    }()
 
-	errChan := make(chan error)
+    time.Sleep(1 * time.Second) // Ensure server starts
 
-	go func() {
-		if err := network.StartServer("127.0.0.1", 8000); err != nil {
-			errChan <- err
-		}
-		close(errChan)
-	}()
+    port := network.GetListeningPort()
+    assert.NotZero(t, port)
 
-	select {
-	case err := <-errChan:
-		if err != nil {
-			t.Fatalf("Failed to start server: %v", err)
-		}
-	case <-time.After(2 * time.Second): // Increase timeout to ensure server starts
-		// Server started successfully
-	}
-
-	conn, err := net.Dial("tcp", "127.0.0.1:8000")
-	if err != nil {
-		t.Fatalf("Failed to connect to server: %v", err)
-	}
-	defer conn.Close()
+    tlsConfig, _ := network.LoadTLSConfig(network.ServerCertFile, network.ServerKeyFile)
+    conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port), tlsConfig)
+    assert.NoError(t, err)
+    defer conn.Close()
 }
 
 func TestSendMessage(t *testing.T) {
-	key := make([]byte, 32) // AES-256 key size
-	_, err := rand.Read(key)
-	if err != nil {
-		t.Fatalf("Failed to generate encryption key: %v", err)
-	}
-	message.SetEncryptionKey(key)
+    key := make([]byte, 32)
+    _, err := rand.Read(key)
+    assert.NoError(t, err)
 
-	dhtInstance := dht.NewDHT()
+    dhtInstance := dht.NewDHT()
+    node := dht.NewNode("127.0.0.1", 0, false, key)
+    assert.NotNil(t, node)
 
-	node := dht.NewNode("127.0.0.1", 8001, false, key)
-	dhtInstance.JoinNetwork(node)
+    network := networking.NewNetwork(dhtInstance)
+    assert.NotNil(t, network)
 
-	network := networking.NewNetwork(dhtInstance)
+    go func() {
+        err := network.StartServer("127.0.0.1", 0)
+        assert.NoError(t, err)
+    }()
 
-	errChan := make(chan error)
+    time.Sleep(1 * time.Second) // Ensure server starts
 
-	go func() {
-		if err := network.StartServer("127.0.0.1", 8001); err != nil {
-			errChan <- err
-		}
-		close(errChan)
-	}()
+    port := network.GetListeningPort()
+    assert.NotZero(t, port)
 
-	select {
-	case err := <-errChan:
-		if err != nil {
-			t.Fatalf("Failed to start server: %v", err)
-		}
-	case <-time.After(1 * time.Second):
-		// Server started successfully
-	}
-
-	msg := message.NewMessage(uint16(4+len([]byte("ping"))), message.DHT_PING, []byte("ping"))
-
-	serializedMsg, err := msg.Serialize()
-	if err != nil {
-		t.Fatalf("Failed to serialize message: %v", err)
-	}
-
-	err = network.SendMessage("127.0.0.1", 8001, serializedMsg)
-	if err != nil {
-		t.Fatalf("Failed to send message: %v", err)
-	}
+    msg := message.NewMessage(uint16(4+len([]byte("ping"))), message.DHT_PING, []byte("ping"))
+    serializedMsg, _ := msg.Serialize()
+    err = network.SendMessage("127.0.0.1", port, serializedMsg, node.CertFile, node.KeyFile)
+    assert.NoError(t, err)
 }
+
 
 func TestHandleConnection(t *testing.T) {
 	key := make([]byte, 32) // AES-256 key size
@@ -198,7 +170,8 @@ func TestHandleConnection(t *testing.T) {
 		t.Fatalf("Failed to serialize message: %v", err)
 	}
 
-	conn, err := net.Dial("tcp", "127.0.0.1:8002")
+	tlsConfig, err := network.LoadTLSConfig(network.ServerCertFile, network.ServerKeyFile)
+	conn, err := tls.Dial("tcp", "127.0.0.1:8002", tlsConfig)
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
 	}
@@ -290,7 +263,8 @@ func TestGetListeningPort(t *testing.T) {
 		t.Fatalf("Failed to get listening port")
 	}
 
-	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	tlsConfig, err := network.LoadTLSConfig(network.ServerCertFile, network.ServerKeyFile)
+	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port), tlsConfig)
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
 	}
@@ -331,12 +305,16 @@ func TestStopServer(t *testing.T) {
 
 	network.StopServer()
 	time.Sleep(1 * time.Second) // Ensure server stops
-
+	tlsConfig, err := network.LoadTLSConfig(network.ServerCertFile, network.ServerKeyFile)
+	if err != nil {
+		t.Fatalf("Failed to load TLS configuration: %v", err)
+	}
 	port := network.GetListeningPort()
-	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+
+	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port), tlsConfig)
 	if err == nil {
-		defer conn.Close()
-		t.Fatalf("Expected connection to fail after server stop")
+		conn.Close()
+		t.Fatalf("Expected connection to fail after server stop, but it succeeded")
 	}
 }
 

@@ -5,14 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/bits"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 type Node struct {
@@ -24,6 +22,8 @@ type Node struct {
 	KBuckets []*KBucket
 	IsDown   bool
 	mu       sync.Mutex
+	CertFile string
+	KeyFile  string
 }
 
 func NewNode(ip string, port int, ping bool, key []byte) *Node {
@@ -35,9 +35,12 @@ func NewNode(ip string, port int, ping bool, key []byte) *Node {
 		Port:     port,
 		Ping:     ping,
 		Storage:  storage.NewStorage(ttl, key),
-		IsDown:	  false,
+		IsDown:   false,
 		KBuckets: make([]*KBucket, 160),
+		CertFile: "",
+		KeyFile:  "",
 	}
+
 
 	for i := range node.KBuckets {
 		node.KBuckets[i] = NewKBucket()
@@ -58,58 +61,14 @@ func GenerateNodeID(ip string, port int) string {
 }
 
 func (n *Node) SetupTLS() error {
-	tlsDir := fmt.Sprintf("%s_%d", n.IP, n.Port)
-	certsDir := filepath.Join("certificates", tlsDir)
-	caDir := filepath.Join("certificates", "CA")
-
-	// Ensure CA directory exists
-	if _, err := os.Stat(caDir); os.IsNotExist(err) {
-		os.MkdirAll(caDir, os.ModePerm)
-	}
-
-	// Ensure CA files exist
-	if _, err := os.Stat(filepath.Join(caDir, "ca.pem")); os.IsNotExist(err) {
-		return fmt.Errorf("CA certificate not found. Please generate the CA certificate and key.")
-	}
-	if _, err := os.Stat(filepath.Join(caDir, "ca.key")); os.IsNotExist(err) {
-		return fmt.Errorf("CA key not found. Please generate the CA certificate and key.")
-	}
-
-	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
-		os.MkdirAll(certsDir, os.ModePerm)
-		if err := n.GenerateCertificates(certsDir); err != nil {
-			return fmt.Errorf("failed to generate certificates: %v", err)
-		}
-	}
-	return nil
-}
-
-func (n *Node) GenerateCertificates(certsDir string) error {
-	keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", n.IP, n.Port))
-	csrFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", n.IP, n.Port))
-	certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.crt", n.IP, n.Port))
-
-	fmt.Printf("Generating key: %s\n", keyFile)
-	err := exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
+	certFile, keyFile, err := util.GenerateCertificates(n.IP, n.Port)
 	if err != nil {
-		return fmt.Errorf("error generating key: %v", err)
+		return fmt.Errorf("failed to generate certificates: %v", err)
 	}
 
-	fmt.Printf("Generating CSR: %s\n", csrFile)
-	err = exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-subj", fmt.Sprintf("/CN=%d", n.Port)).Run()
-	if err != nil {
-		return fmt.Errorf("error generating CSR: %v", err)
-	}
+	n.CertFile = certFile
+	n.KeyFile = keyFile
 
-	caDir := filepath.Join("certificates", "CA")
-	fmt.Printf("Generating certificate: %s\n", certFile)
-	cmd := exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", filepath.Join(caDir, "ca.pem"), "-CAkey", filepath.Join(caDir, "ca.key"), "-CAcreateserial", "-out", certFile, "-days", "365")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error generating certificate: %v", err)
-	}
 	return nil
 }
 
