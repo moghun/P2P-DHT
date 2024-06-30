@@ -33,6 +33,7 @@ func main() {
 
 	// Create a new DHT instance
 	dhtInstance := dht.NewDHT()
+	dhtInstance.InitializeBootstrapNodes()
 
 	// Create a new network instance
 	network := networking.NewNetwork(dhtInstance)
@@ -48,8 +49,6 @@ func main() {
 	// Start periodic liveness check
 	dhtInstance.StartPeriodicLivenessCheck(10 * time.Second)
 
-	//InitializeBootstrapNodes(dhtInstance)
-
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -57,18 +56,4 @@ func main() {
 	sig := <-sigChan
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
-}
-
-func InitializeBootstrapNodes(dhtInstance *dht.DHT) {
-	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < 5; i++ {
-		// Create a new Node instance
-		key := []byte("12345678901234567890123456789012")
-		node := dht.NewNode("127.0.0.1", 8000+i, true, key)
-
-		// Add the bootstrap node to the DHT network
-		dhtInstance.JoinNetwork(node)
-	}
-
-	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
 }

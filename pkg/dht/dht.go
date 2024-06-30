@@ -15,9 +15,10 @@ import (
 )
 
 type DHT struct {
-	nodes    []*Node
-	kBuckets []*KBucket
-	mu       sync.Mutex
+	nodes          []*Node
+	kBuckets       []*KBucket
+	mu             sync.Mutex
+	bootstrapNodes []*Node
 }
 
 func NewDHT() *DHT {
@@ -31,8 +32,24 @@ func NewDHT() *DHT {
 	}
 }
 
-//TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
-//			It can be a periodic check maybe.
+func (d *DHT) InitializeBootstrapNodes() {
+	// Loop through each bootstrap node and add it to the DHT
+	for i := 0; i < 5; i++ {
+		// Create a new Node instance
+		key := []byte("12345678901234567890123456789012")
+		node := NewNode("127.0.0.1", 8000+i, true, key)
+
+		// Add the bootstrap node to the DHT network
+		d.JoinNetwork(node)
+		d.bootstrapNodes = append(d.bootstrapNodes, node)
+	}
+
+	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
+}
+
+// TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
+//
+//	It can be a periodic check maybe.
 func (d *DHT) getReplicationFactor() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
