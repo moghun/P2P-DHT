@@ -1,7 +1,11 @@
 package util
 
 import (
+	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -65,4 +69,79 @@ func (d *DHTConfig) GetAPIIPPort() (string, int) {
 	}
 	log.Printf("Parsed API IP: %s, Port: %d", parts[0], port)
 	return parts[0], port
+}
+
+func GenerateCertificates(ip string, port int) (string, string, error) {
+    tlsDir := fmt.Sprintf("%s_%d", ip, port)
+    certsDir := filepath.Join("certificates", tlsDir)
+    caDir := filepath.Join("certificates", "CA")
+
+    // Ensure CA directory exists
+    if _, err := os.Stat(caDir); os.IsNotExist(err) {
+        if err := os.MkdirAll(caDir, os.ModePerm); err != nil {
+            return "", "", fmt.Errorf("failed to create CA directory: %v", err)
+        }
+    }
+
+    // Ensure CA files exist
+    caCertFile := filepath.Join(caDir, "ca.pem")
+    caKeyFile := filepath.Join(caDir, "ca.key")
+    if _, err := os.Stat(caCertFile); os.IsNotExist(err) {
+        return "", "", fmt.Errorf("CA certificate not found: %s", caCertFile)
+    }
+    if _, err := os.Stat(caKeyFile); os.IsNotExist(err) {
+        return "", "", fmt.Errorf("CA key not found: %s", caKeyFile)
+    }
+
+    // Ensure certificates directory exists
+    if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+        if err := os.MkdirAll(certsDir, os.ModePerm); err != nil {
+            return "", "", err
+        }
+    }
+
+    keyFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.key", ip, port))
+    csrFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.csr", ip, port))
+    certFile := filepath.Join(certsDir, fmt.Sprintf("%s_%d.crt", ip, port))
+    confFile := filepath.Join(certsDir, "openssl.cnf") // Configuration file for OpenSSL
+
+    // Generate RSA key
+    err := exec.Command("openssl", "genpkey", "-algorithm", "RSA", "-out", keyFile).Run()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating key: %v", err)
+    }
+
+    // Prepare OpenSSL configuration to include SAN
+    configContents := `[req]
+						prompt = no
+						distinguished_name = req_distinguished_name
+						req_extensions = req_ext
+						[req_distinguished_name]
+						CN = ` + ip + `
+						[req_ext]
+						subjectAltName = @alt_names
+						[alt_names]
+						IP.1 = ` + ip
+
+    err = os.WriteFile(confFile, []byte(configContents), 0644)
+    if err != nil {
+        return "", "", fmt.Errorf("error writing OpenSSL config: %v", err)
+    }
+
+    // Generate CSR with config
+    err = exec.Command("openssl", "req", "-new", "-key", keyFile, "-out", csrFile, "-config", confFile).Run()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating CSR: %v", err)
+    }
+
+    // Generate certificate with CA and config
+    cmd := exec.Command("openssl", "x509", "-req", "-in", csrFile, "-CA", caCertFile, "-CAkey", caKeyFile, "-CAcreateserial", "-out", certFile, "-days", "365", "-extfile", confFile, "-extensions", "req_ext")
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    err = cmd.Run()
+    if err != nil {
+        return "", "", fmt.Errorf("error generating certificate: %v", err)
+    }
+
+    return certFile, keyFile, nil
 }
