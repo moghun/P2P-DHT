@@ -86,9 +86,9 @@ func TestProcessMessage(t *testing.T) {
 			errMsg: "data too short to process",
 		},
 		{
-			size:    uint16(8), // Mismatch between size and data length
-			data:    []byte("abcd"),
-			errMsg:  "invalid request type",
+			size:   uint16(8), // Mismatch between size and data length
+			data:   []byte("abcd"),
+			errMsg: "invalid request type",
 		},
 	}
 
@@ -173,47 +173,62 @@ func TestDHTHandleGet(t *testing.T) {
 }
 
 func TestDhtPut(t *testing.T) {
-    key := []byte("12345678901234567890123456789012")
-    dhtInstance := dht.NewDHT()
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
 
-    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
-    dhtInstance.JoinNetwork(node1)
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
 
-    err := dhtInstance.DhtPut("testKey", "testValue", 3600)
-    assert.Nil(t, err, "dhtPut should store the value without error")
+	err := dhtInstance.DhtPut("testKey", "testValue", 3600)
+	assert.Nil(t, err, "dhtPut should store the value without error")
 
-    value, err := node1.Get("testKey")
-    assert.Nil(t, err, "Get operation should not return an error")
-    assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
+	value, err := node1.Get("testKey")
+	assert.Nil(t, err, "Get operation should not return an error")
+	assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
 }
 
 func TestDhtGet(t *testing.T) {
-    key := []byte("12345678901234567890123456789012")
-    dhtInstance := dht.NewDHT()
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
 
-    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
-    dhtInstance.JoinNetwork(node1)
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	dhtInstance.JoinNetwork(node1)
 
-    err := node1.Put("testKey", "testValue", 3600)
-    assert.Nil(t, err, "Put operation should not return an error")
+	err := node1.Put("testKey", "testValue", 3600)
+	assert.Nil(t, err, "Put operation should not return an error")
 
-    value, err := dhtInstance.DhtGet("testKey")
-    assert.Nil(t, err, "dhtGet should retrieve the value without error")
-    assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
+	value, err := dhtInstance.DhtGet("testKey")
+	assert.Nil(t, err, "dhtGet should retrieve the value without error")
+	assert.Equal(t, "testValue", value, "Retrieved value should match the stored value")
 }
 
 func TestGetClosestNodes(t *testing.T) {
-    key := []byte("12345678901234567890123456789012")
-    dhtInstance := dht.NewDHT()
+	key := []byte("12345678901234567890123456789012")
+	dhtInstance := dht.NewDHT()
 
-    node1 := dht.NewNode("127.0.0.1", 8000, true, key)
-    node2 := dht.NewNode("127.0.0.1", 8001, true, key)
-    dhtInstance.JoinNetwork(node1)
-    dhtInstance.JoinNetwork(node2)
+	node1 := dht.NewNode("127.0.0.1", 8000, true, key)
+	node2 := dht.NewNode("127.0.0.1", 8001, true, key)
+	dhtInstance.JoinNetwork(node1)
+	dhtInstance.JoinNetwork(node2)
 
-    targetID := dht.GenerateNodeID("127.0.0.1", 8002)
-    closestNodes := dhtInstance.GetClosestNodes(targetID, 1)
+	targetID := dht.GenerateNodeID("127.0.0.1", 8002)
+	closestNodes := dhtInstance.GetClosestNodes(targetID, 1)
 
-    assert.Equal(t, 1, len(closestNodes), "There should be 1 closest node")
-    assert.Contains(t, []*dht.Node{node1, node2}, closestNodes[0], "The closest node should be one of the joined nodes")
+	assert.Equal(t, 1, len(closestNodes), "There should be 1 closest node")
+	assert.Contains(t, []*dht.Node{node1, node2}, closestNodes[0], "The closest node should be one of the joined nodes")
+}
+
+func TestInitializeBootstrapNodes(t *testing.T) {
+	dhtInstance := dht.NewDHT()
+	// Loop through each bootstrap node and add it to the DHT
+	for i := 0; i < 5; i++ {
+		// Create a new Node instance
+		key := []byte("12345678901234567890123456789012")
+		node := dht.NewNode("127.0.0.1", 8000+i, true, key)
+
+		// Add the bootstrap node to the DHT network
+		dhtInstance.JoinNetwork(node)
+	}
+
+	assert.Equal(t, 5, len(dhtInstance.GetNumNodes()), "There should be 5 bootstrap nodes")
 }

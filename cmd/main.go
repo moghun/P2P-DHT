@@ -28,7 +28,7 @@ func main() {
 	// Extract IP and port from the config
 	ip, port := config.DHT.GetP2PIPPort()
 
-    // For the sake of example
+	// For the sake of example
 	// Create a new node
 
 	// Create a new DHT instance
@@ -48,12 +48,27 @@ func main() {
 	// Start periodic liveness check
 	dhtInstance.StartPeriodicLivenessCheck(10 * time.Second)
 
+	//InitializeBootstrapNodes(dhtInstance)
+
 	// Handle graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
-	network.StopServer()
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
+}
+
+func InitializeBootstrapNodes(dhtInstance *dht.DHT) {
+	// Loop through each bootstrap node and add it to the DHT
+	for i := 0; i < 5; i++ {
+		// Create a new Node instance
+		key := []byte("12345678901234567890123456789012")
+		node := dht.NewNode("127.0.0.1", 8000+i, true, key)
+
+		// Add the bootstrap node to the DHT network
+		dhtInstance.JoinNetwork(node)
+	}
+
+	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
 }
