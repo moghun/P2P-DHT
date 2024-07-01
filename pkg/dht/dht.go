@@ -277,6 +277,35 @@ func (d *DHT) JoinNetwork(node *Node) {
 	}
 }
 
+
+func (d *DHT) GetKClosestNodesToTargetIterative(recipient *Node, targetID string, k int) []*Node {
+	kClosestNodes := recipient.GetClosestNodesToCurrNode(targetID, k)
+	//Lookup the closest nodes to the target node, from the recipient node's response of the closest nodes
+	for i := range kClosestNodes {
+		contactClosestNodes := kClosestNodes[i].GetClosestNodesToCurrNode(targetID, k)
+		//Perform lookup on the recently contacted nodes to iteratively find the closest nodes to the target node
+		kClosestNodes = append(kClosestNodes, contactClosestNodes...)
+	}
+
+	//Remove duplicates
+	kclosestNodes := FilterDuplicates(kClosestNodes)
+	return kclosestNodes
+}
+
+// Filters duplicate Node IDs from the given slice and returns a new slice
+func FilterDuplicates(nodes []*Node) []*Node {
+	seen := make(map[string]bool)
+	filtered := []*Node{}
+
+	for _, node := range nodes {
+		if !seen[node.ID] {
+			seen[node.ID] = true
+			filtered = append(filtered, node)
+		}
+	}
+
+	return filtered
+}
 func (d *DHT) LeaveNetwork(node *Node) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
