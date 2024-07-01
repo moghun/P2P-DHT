@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"sort"
 	"strings"
@@ -14,8 +13,6 @@ import (
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
-
-const bootstrapNodeAmount = 5
 
 type DHT struct {
 	nodes          []*Node
@@ -29,25 +26,14 @@ func NewDHT() *DHT {
 	for i := range kBuckets {
 		kBuckets[i] = NewKBucket()
 	}
-	return &DHT{
+
+	dht = &DHT{
 		nodes:    []*Node{},
 		kBuckets: kBuckets,
 	}
-}
 
-func (d *DHT) InitializeBootstrapNodes() {
-	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < bootstrapNodeAmount; i++ {
-		// Create a new Node instance
-		key := []byte("12345678901234567890123456789012")
-		node := NewNode("127.0.0.1", 8000+i, true, key)
-
-		// Add the bootstrap node to the DHT network
-		d.JoinNetwork(node)
-		d.bootstrapNodes = append(d.bootstrapNodes, node)
-	}
-
-	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
+	NewKademlia(dht)
+	return dht
 }
 
 // TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
@@ -278,53 +264,6 @@ func (d *DHT) JoinNetwork(node *Node) {
 			node.AddPeer(existingNode.ID, existingNode.IP, existingNode.Port)
 		}
 	}
-}
-
-func (d *DHT) KademliaJoin(joiningNode *Node) {
-	//Get a bootstrap node to start the lookup to find the joining node's closest nodes
-	bsNode := d.GetRandomBootstrapNode()
-	kclosestNodesSet := d.GetKClosestNodesToTargetIterative(bsNode, joiningNode.ID, d.getReplicationFactor())
-
-	//Add the found nodes to the joining node's kbuckets
-	for i := range kclosestNodesSet {
-		joiningNode.AddPeer(kclosestNodesSet[i].ID, kclosestNodesSet[i].IP, kclosestNodesSet[i].Port)
-	}
-}
-
-func (d *DHT) GetKClosestNodesToTargetIterative(recipient *Node, targetID string, k int) []*Node {
-	kClosestNodes := recipient.GetClosestNodesToCurrNode(targetID, k)
-	//Lookup the closest nodes to the target node, from the recipient node's response of the closest nodes
-	for i := range kClosestNodes {
-		contactClosestNodes := kClosestNodes[i].GetClosestNodesToCurrNode(targetID, k)
-		//Perform lookup on the recently contacted nodes to iteratively find the closest nodes to the target node
-		kClosestNodes = append(kClosestNodes, contactClosestNodes...)
-	}
-
-	//Remove duplicates
-	kclosestNodes := FilterDuplicates(kClosestNodes)
-	return kclosestNodes
-}
-
-// Filters duplicate Node IDs from the given slice and returns a new slice
-func FilterDuplicates(nodes []*Node) []*Node {
-	seen := make(map[string]bool)
-	filtered := []*Node{}
-
-	for _, node := range nodes {
-		if !seen[node.ID] {
-			seen[node.ID] = true
-			filtered = append(filtered, node)
-		}
-	}
-
-	return filtered
-}
-
-// Randomly selects a bootstrap node from the list of bootstrap nodes
-func (d *DHT) GetRandomBootstrapNode() *Node {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomBsNode := d.bootstrapNodes[r.Intn(len(d.bootstrapNodes))]
-	return randomBsNode
 }
 
 func (d *DHT) LeaveNetwork(node *Node) error {

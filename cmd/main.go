@@ -33,7 +33,6 @@ func main() {
 
 	// Create a new DHT instance
 	dhtInstance := dht.NewDHT()
-	dhtInstance.InitializeBootstrapNodes()
 
 	// Create a new network instance
 	network := networking.NewNetwork(dhtInstance)
