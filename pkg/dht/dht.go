@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sort"
 	"strings"
@@ -13,6 +14,8 @@ import (
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
+
+const bootstrapNodeAmount = 5
 
 type DHT struct {
 	nodes          []*Node
@@ -34,7 +37,7 @@ func NewDHT() *DHT {
 
 func (d *DHT) InitializeBootstrapNodes() {
 	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < 5; i++ {
+	for i := 0; i < bootstrapNodeAmount; i++ {
 		// Create a new Node instance
 		key := []byte("12345678901234567890123456789012")
 		node := NewNode("127.0.0.1", 8000+i, true, key)
@@ -277,6 +280,16 @@ func (d *DHT) JoinNetwork(node *Node) {
 	}
 }
 
+func (d *DHT) KademliaJoin(joiningNode *Node) {
+	//Get a bootstrap node to start the lookup to find the joining node's closest nodes
+	bsNode := d.GetRandomBootstrapNode()
+	kclosestNodesSet := d.GetKClosestNodesToTargetIterative(bsNode, joiningNode.ID, d.getReplicationFactor())
+
+	//Add the found nodes to the joining node's kbuckets
+	for i := range kclosestNodesSet {
+		joiningNode.AddPeer(kclosestNodesSet[i].ID, kclosestNodesSet[i].IP, kclosestNodesSet[i].Port)
+	}
+}
 
 func (d *DHT) GetKClosestNodesToTargetIterative(recipient *Node, targetID string, k int) []*Node {
 	kClosestNodes := recipient.GetClosestNodesToCurrNode(targetID, k)
@@ -306,6 +319,14 @@ func FilterDuplicates(nodes []*Node) []*Node {
 
 	return filtered
 }
+
+// Randomly selects a bootstrap node from the list of bootstrap nodes
+func (d *DHT) GetRandomBootstrapNode() *Node {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomBsNode := d.bootstrapNodes[r.Intn(len(d.bootstrapNodes))]
+	return randomBsNode
+}
+
 func (d *DHT) LeaveNetwork(node *Node) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
