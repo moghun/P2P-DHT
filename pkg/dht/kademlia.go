@@ -2,46 +2,22 @@ package dht
 
 import (
 	"fmt"
-	"math/rand"
-	"time"
 )
 
 const bootstrapNodeAmount = 5
 
 var dht *DHT = nil
+var myNode *Node = nil
 
-type Kademlia struct {
-	bootstrapNodes []*Node
-}
-
-func NewKademlia(dhtInstance *DHT) *Kademlia {
+func NewKademlia(dhtInstance *DHT) {
 	SetDhtInstance(dhtInstance)
-	InitializeBootstrapNodes()
-	return &Kademlia{}
 }
 
 func SetDhtInstance(dhtInstance *DHT) {
 	dht = dhtInstance
 }
 
-func InitializeBootstrapNodes() {
-	checkDhtInstance()
-
-	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < bootstrapNodeAmount; i++ {
-		// Create a new Node instance
-		key := []byte("12345678901234567890123456789012")
-		node := NewNode("127.0.0.1", 8000+i, true, key)
-
-		// Add the bootstrap node to the DHT network
-		dht.JoinNetwork(node)
-		dht.bootstrapNodes = append(dht.bootstrapNodes, node)
-	}
-
-	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
-}
-
-func FindNode(recipient *Node, targetID string, k int) []*Node {
+func FindNodeFromRecipient(recipient *Node, targetID string, k int) []*Node {
 	kClosestNodes := recipient.GetClosestNodesToCurrNode(targetID, k)
 	//Lookup the closest nodes to the target node, from the recipient node's response of the closest nodes
 	for i := range kClosestNodes {
@@ -53,6 +29,39 @@ func FindNode(recipient *Node, targetID string, k int) []*Node {
 	//Remove duplicates
 	kclosestNodes := FilterDuplicateNodes(kClosestNodes)
 	return kclosestNodes
+}
+
+func FindNode(targetID string) []*Node {
+	k := dht.getReplicationFactor()
+	kClosestNodes := myNode.GetClosestNodesToCurrNode(targetID, k)
+	//Lookup the closest nodes to the target node, from the recipient node's response of the closest nodes
+	for i := range kClosestNodes {
+		contactClosestNodes := kClosestNodes[i].GetClosestNodesToCurrNode(targetID, k)
+		//Perform lookup on the recently contacted nodes to iteratively find the closest nodes to the target node
+		kClosestNodes = append(kClosestNodes, contactClosestNodes...)
+	}
+
+	//Remove duplicates
+	kclosestNodes := FilterDuplicateNodes(kClosestNodes)
+	return kclosestNodes
+}
+
+// Kademlia: TODO current implementation assumes nodes are sent, normally only ids or values should be sent
+func FindValue(targetID string) []*Node {
+	k := dht.getReplicationFactor()
+	kClosestNodes := myNode.GetClosestNodesToCurrNode(targetID, k)
+	returnList := []*Node{}
+	for i := range kClosestNodes {
+		if kClosestNodes[i].ID == targetID {
+			returnList = append(returnList, kClosestNodes[i])
+			return returnList
+		}
+	}
+
+	return FindNode(targetID)
+	//Kademlia: TODO send find value message to kClosestNodes in a loop
+	//If returned message is dht fail, return fail message/nil
+	//If returned message is a id/success, return success message
 }
 
 // Filters duplicate Node IDs from the given slice and returns a new slice
@@ -70,22 +79,13 @@ func FilterDuplicateNodes(nodes []*Node) []*Node {
 	return filtered
 }
 
-// Randomly selects a bootstrap node from the list of bootstrap nodes
-func (kad *Kademlia) getRandomBootstrapNode() *Node {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomBsNode := kad.bootstrapNodes[r.Intn(len(kad.bootstrapNodes))]
-	return randomBsNode
-}
-
-func (kad *Kademlia) Join(joiningNode *Node) {
+func Join(joiningNode *Node, bsNode *Node) {
 	checkDhtInstance()
-	//Get a bootstrap node to start the lookup to find the joining node's closest nodes
-	bsNode := kad.getRandomBootstrapNode()
-	kclosestNodesSet := FindNode(bsNode, joiningNode.ID, dht.getReplicationFactor())
+	kclosestNodes := FindNodeFromRecipient(bsNode, joiningNode.ID, dht.getReplicationFactor())
 
 	//Add the found nodes to the joining node's kbuckets
-	for i := range kclosestNodesSet {
-		joiningNode.AddPeer(kclosestNodesSet[i].ID, kclosestNodesSet[i].IP, kclosestNodesSet[i].Port)
+	for i := range kclosestNodes {
+		joiningNode.AddPeer(kclosestNodes[i].ID, kclosestNodes[i].IP, kclosestNodes[i].Port)
 	}
 }
 

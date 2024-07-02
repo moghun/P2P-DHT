@@ -221,14 +221,8 @@ func TestGetClosestNodes(t *testing.T) {
 func TestInitializeBootstrapNodes(t *testing.T) {
 	dhtInstance := dht.NewDHT()
 	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < 5; i++ {
-		// Create a new Node instance
-		key := []byte("12345678901234567890123456789012")
-		node := dht.NewNode("127.0.0.1", 8000+i, true, key)
 
-		// Add the bootstrap node to the DHT network
-		dhtInstance.JoinNetwork(node)
-	}
+	dhtInstance.InitializeBootstrapNodes()
 
 	assert.Equal(t, 5, len(dhtInstance.GetNumNodes()), "There should be 5 bootstrap nodes")
 }

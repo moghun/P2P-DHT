@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sort"
 	"strings"
@@ -32,8 +33,31 @@ func NewDHT() *DHT {
 		kBuckets: kBuckets,
 	}
 
-	NewKademlia(dht)
 	return dht
+}
+
+func (d *DHT) InitializeBootstrapNodes() {
+	checkDhtInstance()
+
+	// Loop through each bootstrap node and add it to the DHT
+	for i := 0; i < bootstrapNodeAmount; i++ {
+		// Create a new Node instance
+		key := []byte("12345678901234567890123456789012")
+		node := NewNode("127.0.0.1", 8000+i, true, key)
+
+		// Add the bootstrap node to the DHT network
+		d.JoinNetwork(node)
+		d.bootstrapNodes = append(d.bootstrapNodes, node)
+	}
+
+	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
+}
+
+// Randomly selects a bootstrap node from the list of bootstrap nodes
+func (d *DHT) getRandomBootstrapNode() *Node {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	randomBsNode := d.bootstrapNodes[r.Intn(len(d.bootstrapNodes))]
+	return randomBsNode
 }
 
 // TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
@@ -113,12 +137,41 @@ func (d *DHT) HandleGet(data []byte) []byte {
 }
 
 func (d *DHT) HandleFindNode(data []byte) []byte {
-	// Implement FindNode logic
+	// Extract the target ID from the data
+	targetID := string(data)
+
+	// Find the closest nodes to the target ID
+	kClosestNodes := FindNode(targetID)
+
+	// Check if we found any closest nodes
+	if len(kClosestNodes) == 0 {
+		// No closest nodes found, respond with a failure message
+		response, _ := message.NewMessage(uint16(len("No nodes found")+4), message.DHT_FAILURE, []byte("No nodes found")).Serialize()
+		return response
+	}
+
+	//Kademlia: TODO convert into string slice of node ids
+	//nodeBytes := serializeNodes(kClosestNodes)
+	//response, _ := message.NewMessage(uint16(len(nodeBytes)+4), message.DHT_SUCCESS, nodeBytes).Serialize()
+
 	return nil
 }
 
 func (d *DHT) HandleFindValue(data []byte) []byte {
 	// Implement FindValue logic
+	targetID := string(data)
+
+	potentialValue := FindValue(targetID)
+	if len(potentialValue) == 1 {
+		//Found the value
+		response, _ := message.NewMessage(uint16(len(potentialValue[0].ID)+4), message.DHT_SUCCESS, []byte(potentialValue[0].ID)).Serialize()
+		return response
+	}
+
+	if len(potentialValue) > 0 {
+		//TODO Send FindValue message iteratively
+	}
+	//Kademlia: TODO According to return response from findvalue, either return fail message and FindNode or the desired value
 	return nil
 }
 
