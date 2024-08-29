@@ -21,30 +21,20 @@ func main() {
 	config := util.LoadConfig(*configPath)
 
 	// Set up logging
-	util.SetupLogging("kademlia.log")
+	util.SetupLogging("node.log")
 
-	// Extract IP and port from the config
-	ip, port := config.DHT.GetP2PIPPort()
+	// Create a new node instance
+	nodeInstance := node.NewNode(config)
 
-	// Create the node
-	nodeInstance := node.NewNode(ip, port, true, []byte("encryption-key-placeholder"))
-
-	// Bootstrap the node with known peers (this could be from the config or hardcoded for now)
-	bootstrapNodes := []*node.Node{
-		// Example bootstrap nodes; in a real-world scenario, these would come from a config or discovery mechanism
-		node.NewNode("127.0.0.1", 8001, false, []byte("bootstrap-key1")),
-		node.NewNode("127.0.0.1", 8002, false, []byte("bootstrap-key2")),
-	}
-
-	// Attempt to bootstrap the node into the network
-	err := nodeInstance.BootstrapNode(bootstrapNodes)
+	// Bootstrap the node to join the network
+	err := nodeInstance.Bootstrap()
 	if err != nil {
 		log.Fatalf("Failed to bootstrap node: %v", err)
 	}
 
-	// Start the node's network server
+	// Start the network server for the node
 	go func() {
-		err := nodeInstance.Network.StartServer(ip, port)
+		err := nodeInstance.Network.StartServer(config.DHT.P2PAddress, config.DHT.GetP2PIPPort())
 		if err != nil {
 			log.Fatalf("Failed to start server: %v", err)
 		}
@@ -58,5 +48,5 @@ func main() {
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
 	// Graceful shutdown logic
-	nodeInstance.LeaveNetwork()
+	nodeInstance.Network.StopServer()
 }
