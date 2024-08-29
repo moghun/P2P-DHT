@@ -1,4 +1,4 @@
-package dht
+package node
 
 import (
 	"crypto/sha256"
