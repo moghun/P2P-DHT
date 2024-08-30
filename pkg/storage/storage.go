@@ -25,11 +25,16 @@ type storageItem struct {
 }
 
 func NewStorage(ttl time.Duration, key []byte) *Storage {
-	return &Storage{
+	storage := &Storage{
 		data: make(map[string]*storageItem),
 		ttl:  ttl,
 		key:  key,
 	}
+
+	storage.StartCleanup(ttl)
+
+	return storage
+
 }
 
 func (s *Storage) Put(key, value string, ttl int) error {
@@ -62,14 +67,16 @@ func (s *Storage) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	log.Printf("Attempting to retrieve key: %x", key)
+
 	item, exists := s.data[key]
 	if !exists {
-		log.Printf("Key not found: %s", key)
+		log.Printf("Key not found: %x", key)
 		return "", nil
 	}
 
 	if time.Now().After(item.expiry) {
-		log.Printf("Key expired: %s", key)
+		log.Printf("Key expired: %x", key)
 		delete(s.data, key)
 		return "", nil
 	}
@@ -78,7 +85,7 @@ func (s *Storage) Get(key string) (string, error) {
 	hasher.Write([]byte(item.value))
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	if hash != item.hash {
-		log.Printf("Data integrity check failed for key: %s", key)
+		log.Printf("Data integrity check failed for key: %x", key)
 		return "", errors.New("data integrity check failed")
 	}
 
@@ -88,11 +95,10 @@ func (s *Storage) Get(key string) (string, error) {
 		return "", err
 	}
 
-	log.Printf("Decrypted value for key %s: %s", key, decryptedValue)
+	log.Printf("Decrypted value for key %x: %s", key, decryptedValue)
 	return string(decryptedValue), nil
 }
-
-func (s *Storage) cleanupExpired() {
+func (s *Storage) CleanupExpired() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,13 +111,14 @@ func (s *Storage) cleanupExpired() {
 }
 
 func (s *Storage) StartCleanup(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	go func() {
-		for {
-			<-ticker.C
-			s.cleanupExpired()
-		}
-	}()
+    ticker := time.NewTicker(interval)
+    go func() {
+        for {
+            <-ticker.C
+            log.Println("Running cleanup...")
+            s.CleanupExpired()
+        }
+    }()
 }
 
 // GetAll returns all key-value pairs from the storage, decrypting the values before returning
@@ -130,3 +137,30 @@ func (s *Storage) GetAll() map[string]string {
 	}
 	return allData
 }
+
+/* FOR TEST PURPOSES*/
+// Getter for the Data field
+func (s *Storage) GetData() map[string]*storageItem {
+	return s.data
+}
+
+// Getter for the Data field
+func (s *storageItem) SetValue(setValue string){
+	s.value = setValue
+}
+
+// Getter for the TTL field
+func (s *Storage) GetTTL() time.Duration {
+	return s.ttl
+}
+
+// Getter for the Key field
+func (s *Storage) GetKey() []byte {
+	return s.key
+}
+
+// Setter for the Key field (useful for testing purposes)
+func (s *Storage) SetKey(key []byte) {
+	s.key = key
+}
+/* FOR TEST PURPOSES*/
