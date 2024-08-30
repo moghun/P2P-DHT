@@ -4,11 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
-
-var encryptionKey []byte
 
 // Message codes for DHT operations
 const (
@@ -21,86 +17,87 @@ const (
 	DHT_FIND_NODE
 	DHT_NODE_REPLY
 	DHT_FIND_VALUE
+	DHT_BOOTSTRAP
+	DHT_BOOTSTRAP_REPLY
 )
 
-type Message struct {
+// Message interface defines the methods that all message types must implement
+type Message interface {
+	Serialize() ([]byte, error)
+	Deserialize([]byte) (Message, error)
+	GetType() int
+}
+
+// BaseMessage provides a common structure for all message types
+type BaseMessage struct {
 	Size uint16
 	Type int
-	Data []byte
 }
 
-func NewMessage(size uint16, t int, data []byte) *Message {
-	return &Message{Size: size, Type: t, Data: data}
-}
-
-func (m *Message) Serialize() ([]byte, error) {
-	if encryptionKey == nil {
-		return nil, errors.New("encryption key not set")
+// SerializeHeader serializes the header (Size and Type) of a message
+func (m *BaseMessage) SerializeHeader(buf *bytes.Buffer) error {
+	if err := binary.Write(buf, binary.BigEndian, m.Size); err != nil {
+		return err
 	}
-
-	buf := new(bytes.Buffer)
-	// Write the type of the message
 	if err := binary.Write(buf, binary.BigEndian, int16(m.Type)); err != nil {
-		return nil, err
+		return err
+	}
+	return nil
+}
+
+// DeserializeHeader deserializes the header (Size and Type) of a message
+func (m *BaseMessage) DeserializeHeader(data []byte) error {
+	if len(data) < 4 {
+		return errors.New("data too short to contain a valid message header")
+	}
+	m.Size = binary.BigEndian.Uint16(data[:2])
+	m.Type = int(binary.BigEndian.Uint16(data[2:4]))
+	return nil
+}
+
+// CreateMessage is a factory function for creating new messages when you know the type
+func CreateMessage(msgType int, data []byte) (Message, error) {
+	switch msgType {
+	case DHT_PUT:
+		return NewDHTPutMessage(0, 0, [32]byte{}, data), nil // Placeholder for initialization
+	case DHT_GET:
+		return NewDHTGetMessage([32]byte{}), nil // Placeholder for initialization
+	case DHT_SUCCESS:
+		return NewDHTSuccessMessage([32]byte{}, data), nil // Placeholder for initialization
+	case DHT_FAILURE:
+		return NewDHTFailureMessage([32]byte{}), nil // Placeholder for initialization
+	case DHT_PING:
+		return NewDHTPingMessage(), nil
+	case DHT_PONG:
+		return NewDHTPongMessage(), nil
+	case DHT_FIND_NODE:
+		return NewDHTFindNodeMessage([32]byte{}), nil // Placeholder for initialization
+	case DHT_FIND_VALUE:
+		return NewDHTFindValueMessage([32]byte{}), nil // Placeholder for initialization
+	case DHT_BOOTSTRAP:
+		return NewDHTBootstrapMessage(string(data)), nil
+	case DHT_BOOTSTRAP_REPLY:
+		return NewDHTBootstrapReplyMessage(data), nil
+	default:
+		return nil, errors.New("unknown message type")
+	}
+}
+
+// DeserializeMessage is a factory function for deserializing a message when you don't know the type
+func DeserializeMessage(data []byte) (Message, error) {
+	if len(data) < 4 { // Ensuring there's enough data for the header
+		return nil, errors.New("data too short to contain a valid message header")
 	}
 
-	// Write the actual data of the message
-	if err := binary.Write(buf, binary.BigEndian, int16(len(m.Data))); err != nil {
-		return nil, err
-	}
+	// Extract the message type from the header
+	msgType := int(binary.BigEndian.Uint16(data[2:4]))
 
-	if _, err := buf.Write(m.Data); err != nil {
-		return nil, err
-	}
-
-	serializedData := buf.Bytes()
-
-	encryptedData, err := util.Encrypt(serializedData, encryptionKey)
+	// Create the appropriate message based on the type
+	msg, err := CreateMessage(msgType, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return []byte(encryptedData), nil
-}
-
-func DeserializeMessage(data []byte) (*Message, error) {
-	if encryptionKey == nil {
-		return nil, errors.New("encryption key not set")
-	}
-
-
-	decryptedData, err := util.Decrypt(string(data), encryptionKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(decryptedData) < 4 { // 2 bytes for type, 2 bytes for data length
-		return nil, errors.New("decrypted data too short")
-	}
-
-	buf := bytes.NewReader(decryptedData)
-
-	// Read the type of the message
-	var msgType int16
-	if err := binary.Read(buf, binary.BigEndian, &msgType); err != nil {
-		return nil, err
-	}
-
-	// Read the length of the data
-	var dataLength int16
-	if err := binary.Read(buf, binary.BigEndian, &dataLength); err != nil {
-		return nil, err
-	}
-
-	msgData := make([]byte, dataLength)
-	if _, err := buf.Read(msgData); err != nil {
-		return nil, err
-	}
-
-	return &Message{Size: uint16(len(msgData)+4),Type: int(msgType), Data: msgData}, nil
-}
-
-
-func SetEncryptionKey(key []byte) {
-	encryptionKey = key
+	// Deserialize the full message (including the header)
+	return msg.Deserialize(data)
 }
