@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sync"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
 
@@ -25,46 +25,70 @@ func StartServer(address string, nodeInstance *node.Node) error {
 			continue
 		}
 
-		go handleConnection(conn, nodeInstance)
+		go WithMiddleware(func(c net.Conn) {
+			HandleConnection(c, nodeInstance)
+		})(conn)
 	}
 }
 
-func handleConnection(conn net.Conn, nodeInstance *node.Node) {
-	defer conn.Close()
+func HandleConnection(conn net.Conn, nodeInstance *node.Node) {
+    defer conn.Close()
 
-	for {
-		// Read the message
-		buf := make([]byte, 1024)
-		n, err := conn.Read(buf)
-		if err != nil {
-			if err.Error() != "EOF" {
-				log.Printf("Error reading from connection: %v", err)
-			}
-			return
-		}
+    for {
+        // Read the message
+        buf := make([]byte, 1024)
+        n, err := conn.Read(buf)
+        if err != nil {
+            if err.Error() != "EOF" {
+                log.Printf("Error reading from connection: %v", err)
+            }
+            return
+        }
 
-		// Handle the message based on type
-		msgType, err := parseMessageType(buf[:n])
-		if err != nil {
-			log.Printf("Failed to parse message type: %v", err)
-			return
-		}
+        log.Printf("Received %d bytes: %x", n, buf[:n])
 
-		var response []byte
-		switch msgType {
-		case node.DHT_PUT:
-			response = handlePut(buf[:n], nodeInstance)
-		case node.DHT_GET:
-			response = handleGet(buf[:n], nodeInstance)
-		default:
-			log.Printf("Unknown message type: %d", msgType)
-			return
-		}
+        // Deserialize the message
+        msg, err := message.DeserializeMessage(buf[:n])
+        if err != nil {
+            log.Printf("Failed to deserialize message: %v", err)
+            return
+        }
 
-		// Send the response
-		if _, err := conn.Write(response); err != nil {
-			log.Printf("Failed to send response: %v", err)
-			return
-		}
-	}
+        var response []byte
+
+        // Handle the message based on type
+        switch msg.GetType() {
+        case message.DHT_PUT:
+            log.Println("Handling DHT_PUT")
+            response = HandlePut(msg, nodeInstance)
+        case message.DHT_GET:
+            log.Println("Handling DHT_GET")
+            response = HandleGet(msg, nodeInstance)
+        case message.DHT_PING:
+            log.Println("Handling DHT_PING")
+            response = HandlePing(msg, nodeInstance)
+        case message.DHT_FIND_NODE:
+            log.Println("Handling DHT_FIND_NODE")
+            response = HandleFindNode(msg, nodeInstance)
+        case message.DHT_FIND_VALUE:
+            log.Println("Handling DHT_FIND_VALUE")
+            response = HandleFindValue(msg, nodeInstance)
+        case message.DHT_BOOTSTRAP:
+            log.Println("Handling DHT_BOOTSTRAP")
+            response = HandleBootstrap(msg, nodeInstance)
+        case message.DHT_BOOTSTRAP_REPLY:
+            log.Println("Handling DHT_BOOTSTRAP_REPLY")
+            response = HandleBootstrapReply(msg, nodeInstance)
+        default:
+            log.Printf("Unknown message type: %d", msg.GetType())
+            return
+        }
+
+        if _, err := conn.Write(response); err != nil {
+            log.Printf("Failed to send response: %v", err)
+            return
+        }
+
+        log.Printf("Sent response: %x", response)
+    }
 }
