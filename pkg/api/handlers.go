@@ -1,105 +1,96 @@
 package api
 
 import (
-	"bytes"
-	"encoding/binary"
 	"log"
+	"strings"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
 
-func handlePut(data []byte, nodeInstance *node.Node) []byte {
-	// Parse the PUT message
-	var size uint16
-	var msgType uint16
-	var ttl, replication, reserved uint8
-	var key [32]byte
-	value := data[40:] // Assuming the value starts at byte 40
-
-	reader := bytes.NewReader(data)
-	if err := binary.Read(reader, binary.BigEndian, &size); err != nil {
-		log.Printf("Failed to read PUT message size: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &msgType); err != nil {
-		log.Printf("Failed to read PUT message type: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &ttl); err != nil {
-		log.Printf("Failed to read PUT message TTL: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &replication); err != nil {
-		log.Printf("Failed to read PUT message replication: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &reserved); err != nil {
-		log.Printf("Failed to read PUT message reserved byte: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &key); err != nil {
-		log.Printf("Failed to read PUT message key: %v", err)
-		return createFailureResponse(key[:])
-	}
+func HandlePut(msg message.Message, nodeInstance *node.Node) []byte {
+	putMsg := msg.(*message.DHTPutMessage)
 
 	// Store the value in the node's storage
-	if err := nodeInstance.Put(string(key[:]), string(value), int(ttl)); err != nil {
-		return createFailureResponse(key[:])
+	if err := nodeInstance.Put(string(putMsg.Key[:]), string(putMsg.Value), int(putMsg.TTL)); err != nil {
+		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
+		return failureMsg
 	}
 
-	return createSuccessResponse(key[:], value)
+	successMsg, _ := message.NewDHTSuccessMessage(putMsg.Key, putMsg.Value).Serialize()
+	return successMsg
 }
 
-func handleGet(data []byte, nodeInstance *node.Node) []byte {
-	// Parse the GET message
-	var size uint16
-	var msgType uint16
-	var key [32]byte
+func HandleGet(msg message.Message, nodeInstance *node.Node) []byte {
+	getMsg := msg.(*message.DHTGetMessage)
 
-	reader := bytes.NewReader(data)
-	if err := binary.Read(reader, binary.BigEndian, &size); err != nil {
-		log.Printf("Failed to read GET message size: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &msgType); err != nil {
-		log.Printf("Failed to read GET message type: %v", err)
-		return createFailureResponse(key[:])
-	}
-	if err := binary.Read(reader, binary.BigEndian, &key); err != nil {
-		log.Printf("Failed to read GET message key: %v", err)
-		return createFailureResponse(key[:])
-	}
-
-	// Retrieve the value from the node's storage
-	value, err := nodeInstance.Get(string(key[:]))
+	value, err := nodeInstance.Get(string(getMsg.Key[:]))
 	if err != nil || value == "" {
-		return createFailureResponse(key[:])
+		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
+		return failureMsg
 	}
 
-	return createSuccessResponse(key[:], []byte(value))
+	successMsg, _ := message.NewDHTSuccessMessage(getMsg.Key, []byte(value)).Serialize()
+	return successMsg
 }
 
-func parseMessageType(data []byte) (uint16, error) {
-	var msgType uint16
-	buf := bytes.NewReader(data[2:4]) // Assuming type is at byte 2-3
-	err := binary.Read(buf, binary.BigEndian, &msgType)
-	return msgType, err
+func HandlePing(msg message.Message, nodeInstance *node.Node) []byte {
+	// Respond with a PONG message
+	pongMsg, _ := message.NewDHTPongMessage().Serialize()
+	return pongMsg
 }
 
-func createSuccessResponse(key, value []byte) []byte {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint16(4+len(key)+len(value)))
-	binary.Write(&buf, binary.BigEndian, uint16(message.DHT_SUCCESS))
-	buf.Write(key)
-	buf.Write(value)
-	return buf.Bytes()
+func HandleFindNode(msg message.Message, nodeInstance *node.Node) []byte {
+	findNodeMsg := msg.(*message.DHTFindNodeMessage)
+
+	// Mocked response for FIND_NODE
+	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
+	return successMsg
 }
 
-func createFailureResponse(key []byte) []byte {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint16(4+len(key)))
-	binary.Write(&buf, binary.BigEndian, uint16(message.DHT_FAILURE))
-	buf.Write(key)
-	return buf.Bytes()
+func HandleFindValue(msg message.Message, nodeInstance *node.Node) []byte {
+	findValueMsg := msg.(*message.DHTFindValueMessage)
+
+	// Mocked response for FIND_VALUE
+	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
+	return successMsg
+}
+
+func HandleBootstrap(msg message.Message, nodeInstance *node.Node) []byte {
+	bootstrapMsg := msg.(*message.DHTBootstrapMessage)
+
+	ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
+	log.Printf("Handling bootstrap request from node: %s", ipPort)
+
+	//TODO
+	//nodeInstance.AddPeer(node.GenerateNodeIDFromIPPort(ipPort), ipPort)
+
+	peers := nodeInstance.GetAllPeers()
+	var responseData []string
+	for _, peer := range peers {
+		//TODO
+		/*
+		if peer.IPPort() != ipPort {
+			responseData = append(responseData, peer.IPPort())
+		}
+		*/
+		log.Println(peer)
+	}
+
+	responseString := strings.Join(responseData, "\n")
+	bootstrapReplyMsg, _ := message.NewDHTBootstrapReplyMessage([]byte(responseString)).Serialize()
+	return bootstrapReplyMsg
+}
+
+func HandleBootstrapReply(msg message.Message, nodeInstance *node.Node) []byte {
+	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
+
+	nodes := bootstrapReplyMsg.ParseNodes()
+	for _, nodeInfo := range nodes {
+		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
+		nodeInstance.AddPeer(nodeID, nodeInfo.IP, nodeInfo.Port)
+		log.Printf("Added node %s:%d to routing table.\n", nodeInfo.IP, nodeInfo.Port)
+	}
+
+	return nil // No need to respond to a BOOTSTRAP_REPLY message
 }
