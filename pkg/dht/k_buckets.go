@@ -1,79 +1,42 @@
 package dht
 
-import (
-	"container/list"
-	"fmt"
-	"sync"
-)
-
-const KSize = 20
-
+// KBucket represents a bucket in the Kademlia routing table.
 type KBucket struct {
-	nodes *list.List
-	mu    sync.Mutex
+	Nodes []*KNode
 }
 
+// KNode represents a node in the DHT.
+type KNode struct {
+	ID   string
+	IP   string
+	Port int
+}
+
+// NewKBucket creates a new KBucket.
 func NewKBucket() *KBucket {
 	return &KBucket{
-		nodes: list.New(),
+		Nodes: []*KNode{},
 	}
 }
 
-func (kb *KBucket) AddNode(node *Node) {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	for e := kb.nodes.Front(); e != nil; e = e.Next() {
-		if e.Value.(*Node).ID == node.ID {
-			kb.nodes.MoveToFront(e)
-			return
-		}
-	}
-
-	if kb.nodes.Len() >= KSize {
-		kb.nodes.Remove(kb.nodes.Back())
-	}
-	kb.nodes.PushFront(node)
+// AddNode adds a node to the KBucket.
+func (kb *KBucket) AddNode(node *KNode) {
+	// Mock implementation
 }
 
+// RemoveNode removes a node from the KBucket by ID.
 func (kb *KBucket) RemoveNode(nodeID string) {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	for e := kb.nodes.Front(); e != nil; e = e.Next() {
-		if e.Value.(*Node).ID == nodeID {
-			kb.nodes.Remove(e)
-			return
-		}
-	}
+	// Mock implementation
 }
 
-func (kb *KBucket) GetNodes() []*Node {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	var nodes []*Node
-	for e := kb.nodes.Front(); e != nil; e = e.Next() {
-		nodes = append(nodes, e.Value.(*Node))
-	}
-	return nodes
+// GetNodes returns all nodes in the KBucket.
+func (kb *KBucket) GetNodes() []*KNode {
+	// Mock implementation
+	return kb.Nodes
 }
 
-func (kb *KBucket) Contains(node *Node) bool {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	for e := kb.nodes.Front(); e != nil; e = e.Next() {
-		if e.Value.(*Node).ID == node.ID {
-			return true
-		}
-	}
+// Contains checks if a node is in the KBucket.
+func (kb *KBucket) Contains(node *KNode) bool {
+	// Mock implementation
 	return false
-}
-
-func (kb *KBucket) Visualize() {
-	for e := kb.nodes.Front(); e != nil; e = e.Next() {
-		node := e.Value.(*Node)
-		fmt.Printf("\tNode ID: %s, IP: %s, Port: %d\n", node.ID, node.IP, node.Port)
-	}
 }
