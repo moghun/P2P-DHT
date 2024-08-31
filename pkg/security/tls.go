@@ -11,23 +11,47 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 type TLSManager struct {
+	CertDir  string
 	CertFile string
 	KeyFile  string
 }
 
-func NewTLSManager(certFile, keyFile string) *TLSManager {
+func NewTLSManager(certDir string) *TLSManager {
+	// Set certificate and key file paths
+	certFile := filepath.Join(certDir, "cert.pem")
+	keyFile := filepath.Join(certDir, "key.pem")
+
 	return &TLSManager{
+		CertDir:  certDir,
 		CertFile: certFile,
 		KeyFile:  keyFile,
 	}
 }
 
-// GenerateSelfSignedCert generates a self-signed certificate if it doesn't exist.
+// Initialize checks for existing cert and key files, generating them if necessary.
+func (t *TLSManager) Initialize() error {
+	// Ensure the certificate directory exists
+	err := os.MkdirAll(t.CertDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create certificate directory: %v", err)
+	}
+
+	// Check if the certificate or key file does not exist or is invalid
+	if _, err := os.Stat(t.CertFile); os.IsNotExist(err) || os.IsNotExist(checkFile(t.KeyFile)) || !t.isCertValid() {
+		fmt.Println("No valid certificate or key found, generating new self-signed certificate...")
+		return t.GenerateSelfSignedCert()
+	}
+	fmt.Println("Existing valid certificate and key found, using those for TLS.")
+	return nil
+}
+
 func (t *TLSManager) GenerateSelfSignedCert() error {
 	// Check if the certificate or key file does not exist
 	if _, err := os.Stat(t.CertFile); os.IsNotExist(err) || os.IsNotExist(checkFile(t.KeyFile)) {
@@ -45,6 +69,8 @@ func (t *TLSManager) GenerateSelfSignedCert() error {
 			return fmt.Errorf("failed to generate serial number: %v", err)
 		}
 
+		ipAddress := "127.0.0.1"
+
 		template := x509.Certificate{
 			SerialNumber: serialNumber,
 			Subject: pkix.Name{
@@ -55,6 +81,7 @@ func (t *TLSManager) GenerateSelfSignedCert() error {
 			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 			BasicConstraintsValid: true,
+			IPAddresses:           []net.IP{net.ParseIP(ipAddress)},
 		}
 
 		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
@@ -84,7 +111,8 @@ func (t *TLSManager) GenerateSelfSignedCert() error {
 	return nil
 }
 
-// Helper function to check file existence and return an error
+
+// Helper function to check file existence
 func checkFile(filename string) error {
 	_, err := os.Stat(filename)
 	return err
@@ -123,4 +151,33 @@ func (t *TLSManager) GetFingerprint() (string, error) {
 
 	fingerprint := sha256.Sum256(cert.Raw)
 	return fmt.Sprintf("%x", fingerprint), nil
+}
+
+// isCertValid checks if the current certificate is still valid.
+func (t *TLSManager) isCertValid() bool {
+	certData, err := os.ReadFile(t.CertFile)
+	if err != nil {
+		fmt.Printf("Failed to read certificate file: %v\n", err)
+		return false
+	}
+
+	block, _ := pem.Decode(certData)
+	if block == nil || block.Type != "CERTIFICATE" {
+		fmt.Println("Failed to decode PEM block containing certificate.")
+		return false
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Printf("Failed to parse certificate: %v\n", err)
+		return false
+	}
+
+	// Check the certificate expiration
+	if time.Now().After(cert.NotAfter) {
+		fmt.Println("Certificate has expired.")
+		return false
+	}
+
+	return true
 }

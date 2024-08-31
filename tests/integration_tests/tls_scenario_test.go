@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -13,20 +13,16 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
-func loadTestTLSConfig(certFile string) (*tls.Config, error) {
+func loadCertPool(certPath string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
-	caCert, err := ioutil.ReadFile(certFile)
+	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate: %v", err)
+		return nil, fmt.Errorf("failed to read certificate file: %v", err)
 	}
-
-	if !certPool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("failed to append CA certificate to pool")
+	if !certPool.AppendCertsFromPEM(certPEM) {
+		return nil, fmt.Errorf("failed to append certs from PEM")
 	}
-
-	return &tls.Config{
-		RootCAs: certPool,
-	}, nil
+	return certPool, nil
 }
 
 func TestSendMessageSuccess(t *testing.T) {
@@ -49,16 +45,16 @@ func TestSendMessageSuccess(t *testing.T) {
 	senderNode := NewMockNode("127.0.0.1", senderPort).ToNode()
 	network = node.NewNetwork(senderNode)
 
-	// Load the TLS configuration with trusted self-signed certificate
-	tlsConfig, err := loadTestTLSConfig(".certificates/cert.pem")
-	assert.NoError(t, err)
+	// Load the certificate from the receiver's TLS manager to trust the self-signed certificate
+	certPool, err := loadCertPool(".certificates/cert.pem")
+	assert.NoError(t, err, "Failed to load certificate pool")
 
-	// Use the custom TLS config for the connection
-	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", receiverPort), tlsConfig)
-	assert.NoError(t, err)
-	defer conn.Close()
+	tlsConfig, err := network.Tlsm.LoadTLSConfig()
+	assert.NoError(t, err, "Failed to load TLS configuration for client")
 
-	_, err = conn.Write([]byte("hello"))
+	tlsConfig.RootCAs = certPool
+
+	err = network.SendMessage("127.0.0.1", receiverPort, []byte("hello"))
 	assert.NoError(t, err)
 
 	time.Sleep(time.Second)
@@ -89,9 +85,14 @@ func TestStartListening(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	// Load the TLS configuration with trusted self-signed certificate
-	tlsConfig, err := loadTestTLSConfig(".certificates/cert.pem")
-	assert.NoError(t, err)
+	// Load the certificate from the receiver's TLS manager to trust the self-signed certificate
+	certPool, err := loadCertPool(".certificates/cert.pem")
+	assert.NoError(t, err, "Failed to load certificate pool")
+
+	tlsConfig, err := network.Tlsm.LoadTLSConfig()
+	assert.NoError(t, err, "Failed to load TLS configuration for client")
+
+	tlsConfig.RootCAs = certPool
 
 	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port), tlsConfig)
 	assert.NoError(t, err)
