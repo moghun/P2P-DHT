@@ -10,12 +10,18 @@ import (
 
 func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	putMsg := msg.(*message.DHTPutMessage)
-	nodeInstance = nodeInstance.(*node.Node)
+	node := nodeInstance.(*node.Node)
 
-	if err := nodeInstance.Put(string(putMsg.Key[:]), string(putMsg.Value), int(putMsg.TTL)); err != nil {
-		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
-		return failureMsg
-	}
+	done := make(chan bool)
+	// Asynchronously send PUT request to DHT
+	go func() {
+		if err := node.DHT.PUT(string(putMsg.Key[:]), string(putMsg.Value), int(putMsg.TTL)); err != nil {
+			log.Printf("Error processing PUT in DHT: %v", err)
+		}
+		done <- true
+	}()
+
+	<-done // Wait for the asynchronous operation to complete
 
 	successMsg, _ := message.NewDHTSuccessMessage(putMsg.Key, putMsg.Value).Serialize()
 	return successMsg
@@ -23,9 +29,19 @@ func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	getMsg := msg.(*message.DHTGetMessage)
-	nodeInstance = nodeInstance.(*node.Node)
+	node := nodeInstance.(*node.Node)
 
-	value, err := nodeInstance.Get(string(getMsg.Key[:]))
+	var value string
+	var err error
+
+	// Asynchronously send GET request to DHT
+	done := make(chan bool)
+	go func() {
+		value, err = node.DHT.GET(string(getMsg.Key[:]))
+		done <- true
+	}()
+	<-done
+
 	if err != nil || value == "" {
 		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
 		return failureMsg
@@ -43,14 +59,28 @@ func HandlePing(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findNodeMsg := msg.(*message.DHTFindNodeMessage)
-	nodeInstance = nodeInstance.(*node.Node)
+	node := nodeInstance.(*node.Node)
+
+	// Asynchronously process FIND_NODE request
+	go func() {
+		// Implement your DHT logic here
+		log.Print("Is Node down?:", node.IsDown)
+	}()
+
 	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
 	return successMsg
 }
 
 func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findValueMsg := msg.(*message.DHTFindValueMessage)
-	nodeInstance = nodeInstance.(*node.Node)
+	node := nodeInstance.(*node.Node)
+
+	// Asynchronously process FIND_VALUE request
+	go func() {
+		// Implement DHT logic here
+		log.Print("Is Node down?:", node.IsDown)
+	}()
+
 	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
 	return successMsg
 }
