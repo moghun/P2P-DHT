@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -70,7 +71,7 @@ func TestHandleConnection(t *testing.T) {
 		serializedMsg, err := putMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
 		conn.readData = serializedMsg
-
+		log.Println(serializedMsg)
 		api.HandleConnection(conn, &mockNode.Node)
 		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
 	})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
@@ -19,10 +20,12 @@ func TestHandlePut(t *testing.T) {
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
 
 	putMsg := message.NewDHTPutMessage(10000, 2, key, value)
@@ -31,10 +34,12 @@ func TestHandlePut(t *testing.T) {
 	assert.NoError(t, err)
 
 	response := api.HandlePut(putMsg, realNode)
+	log.Print(response)
 	assert.NotNil(t, response)
 
 	// Verify that the value was actually stored in the node's storage
-	storedValue, err := realNode.Get(string(key[:]))
+	storedValue, err := realNode.DHT.GET(string(key[:]))
+	log.Print(storedValue)
 	assert.NoError(t, err)
 	assert.Equal(t, string(value), storedValue)
 }
@@ -45,14 +50,16 @@ func TestHandleGet(t *testing.T) {
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
 
 	// Pre-store the value in the node's storage
-	err := realNode.Put(string(key[:]), value, 10000)
+	err := realNode.DHT.PUT(string(key[:]), value, 10000)
 	assert.NoError(t, err)
 
 	getMsg := message.NewDHTGetMessage(key)
@@ -74,10 +81,12 @@ func TestHandleGet(t *testing.T) {
 func TestHandlePing(t *testing.T) {
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
 
 	pingMsg := message.NewDHTPingMessage()
@@ -98,10 +107,12 @@ func TestHandleFindNode(t *testing.T) {
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
 
 	findNodeMsg := message.NewDHTFindNodeMessage(key)
@@ -124,10 +135,12 @@ func TestHandleFindValue(t *testing.T) {
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
 
 	findValueMsg := message.NewDHTFindValueMessage(key)
@@ -175,12 +188,13 @@ func TestHandleBootstrapReply(t *testing.T) {
 	bootstrapReplyData := "192.168.1.1:8081\n192.168.1.2:8082"
 
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
+		DHT: dht,
 	}
-
 	bootstrapReplyMsg := message.NewDHTBootstrapReplyMessage([]byte(bootstrapReplyData))
 	_, err := bootstrapReplyMsg.Serialize()
 	assert.NoError(t, err)

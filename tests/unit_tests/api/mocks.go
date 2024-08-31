@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 )
@@ -16,11 +17,13 @@ type MockNode struct {
 
 func NewMockNode(ip string, port int) *MockNode {
 	storage := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
 	return &MockNode{
 		Node: node.Node{
 			IP:      ip,
 			Port:    port,
 			Storage: storage,
+			DHT:     dht,
 		},
 	}
 }
