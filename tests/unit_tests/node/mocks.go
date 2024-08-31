@@ -2,21 +2,9 @@ package tests
 
 import (
 	"fmt"
-	"net"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
-
-func GetFreePort() (int, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	return port, nil
-}
 
 type MockNode struct {
 	IP   string

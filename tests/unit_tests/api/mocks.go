@@ -15,7 +15,7 @@ type MockNode struct {
 }
 
 func NewMockNode(ip string, port int) *MockNode {
-	storage := storage.NewStorage(1*time.Hour, []byte("1234567890abcdef"))
+	storage := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
 	return &MockNode{
 		Node: node.Node{
 			IP:      ip,
@@ -100,15 +100,3 @@ func (m *MockConnWithAddr) LocalAddr() net.Addr {
 func (m *MockConnWithAddr) RemoteAddr() net.Addr {
 	return m.remoteAddr
 }
-
-
-// Utility function to get a free port for testing
-func GetFreePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port, nil
-}
-
