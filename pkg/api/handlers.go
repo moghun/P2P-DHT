@@ -8,10 +8,10 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
 
-func HandlePut(msg message.Message, nodeInstance *node.Node) []byte {
+func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	putMsg := msg.(*message.DHTPutMessage)
+	nodeInstance = nodeInstance.(*node.Node)
 
-	// Store the value in the node's storage
 	if err := nodeInstance.Put(string(putMsg.Key[:]), string(putMsg.Value), int(putMsg.TTL)); err != nil {
 		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
 		return failureMsg
@@ -21,8 +21,9 @@ func HandlePut(msg message.Message, nodeInstance *node.Node) []byte {
 	return successMsg
 }
 
-func HandleGet(msg message.Message, nodeInstance *node.Node) []byte {
+func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	getMsg := msg.(*message.DHTGetMessage)
+	nodeInstance = nodeInstance.(*node.Node)
 
 	value, err := nodeInstance.Get(string(getMsg.Key[:]))
 	if err != nil || value == "" {
@@ -34,47 +35,42 @@ func HandleGet(msg message.Message, nodeInstance *node.Node) []byte {
 	return successMsg
 }
 
-func HandlePing(msg message.Message, nodeInstance *node.Node) []byte {
-	// Respond with a PONG message
+func HandlePing(msg message.Message, nodeInstance node.NodeInterface) []byte {
+	nodeInstance = nodeInstance.(*node.Node)
 	pongMsg, _ := message.NewDHTPongMessage().Serialize()
 	return pongMsg
 }
 
-func HandleFindNode(msg message.Message, nodeInstance *node.Node) []byte {
+func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findNodeMsg := msg.(*message.DHTFindNodeMessage)
-
-	// Mocked response for FIND_NODE
+	nodeInstance = nodeInstance.(*node.Node)
 	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
 	return successMsg
 }
 
-
-func HandleFindValue(msg message.Message, nodeInstance *node.Node) []byte {
+func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findValueMsg := msg.(*message.DHTFindValueMessage)
-
-	// Mocked response for FIND_VALUE
+	nodeInstance = nodeInstance.(*node.Node)
 	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
 	return successMsg
 }
 
-func HandleBootstrap(msg message.Message, nodeInstance *node.Node) []byte {
+func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapMsg := msg.(*message.DHTBootstrapMessage)
+	nodeInstance = nodeInstance.(*node.BootstrapNode) //BOOTSTRAP NODE
 
 	ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
 	log.Printf("Handling bootstrap request from node: %s", ipPort)
 
-	//TODO
-	//nodeInstance.AddPeer(node.GenerateNodeIDFromIPPort(ipPort), ipPort)
+	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
+		// Use BootstrapNode specific methods or handle the request accordingly -- TODO
+		bn.KnownPeers[ipPort] = "1"
+	}
 
 	peers := nodeInstance.GetAllPeers()
 	var responseData []string
 	for _, peer := range peers {
-		//TODO
-		/*
-		if peer.IPPort() != ipPort {
-			responseData = append(responseData, peer.IPPort())
-		}
-		*/
+		// Implement logic to filter or manipulate peer data as needed
 		log.Println(peer)
 	}
 
@@ -83,8 +79,9 @@ func HandleBootstrap(msg message.Message, nodeInstance *node.Node) []byte {
 	return bootstrapReplyMsg
 }
 
-func HandleBootstrapReply(msg message.Message, nodeInstance *node.Node) []byte {
+func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
+	nodeInstance = nodeInstance.(*node.Node)
 
 	nodes := bootstrapReplyMsg.ParseNodes()
 	for _, nodeInfo := range nodes {
