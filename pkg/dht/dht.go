@@ -1,422 +1,148 @@
 package dht
 
 import (
-	"crypto/sha256"
+	"crypto/sha1"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"math/rand"
-	"net"
-	"sort"
-	"strings"
+	"log"
 	"sync"
 	"time"
 
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
+// DHT represents a Distributed Hash Table.
 type DHT struct {
-	nodes          []*Node
-	kBuckets       []*KBucket
-	mu             sync.Mutex
-	bootstrapNodes []*Node
+	RoutingTable *RoutingTable
+	Storage      *DHTStorage
 }
 
-func NewDHT() *DHT {
-	kBuckets := make([]*KBucket, 160)
-	for i := range kBuckets {
-		kBuckets[i] = NewKBucket()
-	}
-
-	dht = &DHT{
-		nodes:    []*Node{},
-		kBuckets: kBuckets,
-	}
-
-	return dht
-}
-
-func (d *DHT) InitializeBootstrapNodes() {
-	checkDhtInstance()
-
-	// Loop through each bootstrap node and add it to the DHT
-	for i := 0; i < bootstrapNodeAmount; i++ {
-		// Create a new Node instance
-		key := []byte("12345678901234567890123456789012")
-		node := NewNode("127.0.0.1", 8000+i, true, key)
-
-		// Add the bootstrap node to the DHT network
-		d.JoinNetwork(node)
-		d.bootstrapNodes = append(d.bootstrapNodes, node)
-	}
-
-	fmt.Println("Bootstrap nodes initialized and added to the DHT network.")
-}
-
-// Randomly selects a bootstrap node from the list of bootstrap nodes
-func (d *DHT) getRandomBootstrapNode() *Node {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	randomBsNode := d.bootstrapNodes[r.Intn(len(d.bootstrapNodes))]
-	return randomBsNode
-}
-
-// TODO: We should find a way to scale the replication! When number of nodes increased, replication must scale
-//
-//	It can be a periodic check maybe.
-func (d *DHT) getReplicationFactor() int {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	nodeCount := len(d.nodes)
-	return (nodeCount / 2) + 1
-}
-
-func (d *DHT) ProcessMessage(size uint16, msgType int, data []byte) ([]byte, error) {
-	if len(data) < 4 {
-		return nil, errors.New("data too short to process")
-	}
-
-	fmt.Printf("Processing message: size=%d, requestType=%d, data=%x, len=%d\n", size, msgType, data, len(data))
-
-	if int(size)-4 != len(data) {
-		return nil, fmt.Errorf("wrong data size: expected %d, got %d", size-4, len(data))
-	}
-
-	switch msgType {
-	case message.DHT_PING:
-		return d.HandlePing(data), nil
-	case message.DHT_PONG:
-		return d.HandlePong(data), nil
-	case message.DHT_PUT:
-		return d.HandlePut(data), nil
-	case message.DHT_GET:
-		return d.HandleGet(data), nil
-	case message.DHT_FIND_NODE:
-		return d.HandleFindNode(data), nil
-	case message.DHT_FIND_VALUE:
-		return d.HandleFindValue(data), nil
-	default:
-		return nil, errors.New("invalid request type")
+// NewDHT creates a new instance of DHT.
+func NewDHT(ttl time.Duration, encryptionKey []byte) *DHT {
+	return &DHT{
+		RoutingTable: NewRoutingTable(),
+		Storage:      NewDHTStorage(ttl, encryptionKey),
 	}
 }
 
-func (d *DHT) HandlePing(data []byte) []byte {
-	// Implement Ping logic
-	response, _ := message.NewMessage(uint16(len(data)+4), message.DHT_PING, data).Serialize()
-	return response
+// PUT stores a value in the DHT.
+func (d *DHT) PUT(key, value string, ttl int) error {
+	return d.Storage.Put(key, value, ttl)
 }
 
-func (d *DHT) HandlePong(data []byte) []byte {
-	// Implement Pong logic
+// GET retrieves a value from the DHT.
+func (d *DHT) GET(key string) (string, error) {
+	return d.Storage.Get(key)
+}
+
+// Join allows the node to join the DHT network.
+func (d *DHT) Join() {
+	// Mock implementation
+}
+
+// Leave gracefully leaves the DHT network.
+func (d *DHT) Leave() error {
+	// Mock implementation
 	return nil
 }
 
-func (d *DHT) HandlePut(data []byte) []byte {
-	keyValue := strings.SplitN(string(data), ":", 2)
-	if len(keyValue) != 2 {
-		return nil
+// DHTStorage is a simple in-memory key-value store with TTL and encryption.
+type DHTStorage struct {
+	data map[string]*storageItem
+	mu   sync.Mutex
+	ttl  time.Duration
+	key  []byte // Encryption key
+}
+
+type storageItem struct {
+	value  string
+	expiry time.Time
+	hash   string
+}
+
+// NewDHTStorage initializes a new DHTStorage with a given TTL and encryption key.
+func NewDHTStorage(ttl time.Duration, key []byte) *DHTStorage {
+	storage := &DHTStorage{
+		data: make(map[string]*storageItem),
+		ttl:  ttl,
+		key:  key,
 	}
-	key, value := keyValue[0], keyValue[1]
-	err := d.DhtPut(key, value, 3600)
+	storage.StartCleanup(ttl)
+	return storage
+}
+
+// Put stores a value with the specified TTL.
+func (s *DHTStorage) Put(key, value string, ttl int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	encryptedValue, err := util.Encrypt([]byte(value), s.key)
 	if err != nil {
-		response, _ := message.NewMessage(uint16(len(err.Error())+4), message.DHT_FAILURE, []byte(err.Error())).Serialize()
-		return response
+		log.Printf("Error encrypting value: %v", err)
+		return err
 	}
-	response, _ := message.NewMessage(uint16(len("put works")+4), message.DHT_SUCCESS, []byte("put works")).Serialize()
-	return response
+
+	hasher := sha1.New()
+	hasher.Write([]byte(encryptedValue))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
+	s.data[key] = &storageItem{
+		value:  encryptedValue,
+		expiry: expiry,
+		hash:   hash,
+	}
+	return nil
 }
 
-func (d *DHT) HandleGet(data []byte) []byte {
-	key := string(data)
-	value, err := d.DhtGet(key)
+// Get retrieves the value associated with the key if it exists and hasn't expired.
+func (s *DHTStorage) Get(key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	item, exists := s.data[key]
+	if !exists {
+		return "", nil
+	}
+
+	if time.Now().After(item.expiry) {
+		delete(s.data, key)
+		return "", nil
+	}
+
+	hasher := sha1.New()
+	hasher.Write([]byte(item.value))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	if hash != item.hash {
+		return "", errors.New("data integrity check failed")
+	}
+
+	decryptedValue, err := util.Decrypt(item.value, s.key)
 	if err != nil {
-		response, _ := message.NewMessage(uint16(len(err.Error())+4), message.DHT_FAILURE, []byte(err.Error())).Serialize()
-		return response
+		return "", err
 	}
-	response, _ := message.NewMessage(uint16(len(value)+4), message.DHT_SUCCESS, []byte(value)).Serialize()
-	return response
+
+	return string(decryptedValue), nil
 }
 
-func (d *DHT) HandleFindNode(data []byte) []byte {
-	// Extract the target ID from the data
-	targetID := string(data)
-
-	// Find the closest nodes to the target ID
-	kClosestNodes := FindNode(targetID)
-
-	// Check if we found any closest nodes
-	if len(kClosestNodes) == 0 {
-		// No closest nodes found, respond with a failure message
-		response, _ := message.NewMessage(uint16(len("No nodes found")+4), message.DHT_FAILURE, []byte("No nodes found")).Serialize()
-		return response
-	}
-
-	//Kademlia: TODO convert into string slice of node ids
-	//nodeBytes := serializeNodes(kClosestNodes)
-	//response, _ := message.NewMessage(uint16(len(nodeBytes)+4), message.DHT_SUCCESS, nodeBytes).Serialize()
-
-	return nil
-}
-
-func (d *DHT) HandleFindValue(data []byte) []byte {
-	// Implement FindValue logic
-	targetID := string(data)
-
-	potentialValue := FindValue(targetID)
-	if len(potentialValue) == 1 {
-		//Found the value
-		response, _ := message.NewMessage(uint16(len(potentialValue[0].ID)+4), message.DHT_SUCCESS, []byte(potentialValue[0].ID)).Serialize()
-		return response
-	}
-
-	if len(potentialValue) > 0 {
-		//TODO Send FindValue message iteratively
-	}
-	//Kademlia: TODO According to return response from findvalue, either return fail message and FindNode or the desired value
-	return nil
-}
-
-func (d *DHT) StartPeriodicLivenessCheck(interval time.Duration) {
+// StartCleanup starts a routine that periodically cleans up expired items.
+func (s *DHTStorage) StartCleanup(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	go func() {
-		for {
-			<-ticker.C
-			d.CheckAllLiveness()
+		for range ticker.C {
+			s.CleanupExpired()
 		}
 	}()
 }
 
-func (d *DHT) CheckAllLiveness() {
-	var wg sync.WaitGroup
-	nodesToRemove := []*Node{}
+// CleanupExpired removes expired items from the storage.
+func (s *DHTStorage) CleanupExpired() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, node := range d.nodes {
-		wg.Add(1)
-		go func(n *Node) {
-			defer wg.Done()
-			if !d.CheckLiveness(n.IP, n.Port, 3*time.Second) {
-				fmt.Printf("Node %s:%d is down\n", n.IP, n.Port)
-				d.mu.Lock()
-				nodesToRemove = append(nodesToRemove, n)
-				d.mu.Unlock()
-			}
-		}(node)
-	}
-	wg.Wait()
-
-	fmt.Printf("Nodes to remove: %v\n", nodesToRemove)
-	for _, node := range nodesToRemove {
-		fmt.Printf("Removing node %s:%d\n", node.IP, node.Port)
-		d.RemoveNode(node)
-	}
-}
-
-func (d *DHT) CheckLiveness(ip string, port int, timeout time.Duration) bool {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
-	if err != nil {
-		d.mu.Lock()
-		defer d.mu.Unlock()
-		for _, node := range d.nodes {
-			if node.IP == ip && node.Port == port {
-				fmt.Printf("Marking node %s:%d as down\n", ip, port)
-				node.IsDown = true
-				break
-			}
-		}
-		return false
-	}
-	conn.Close()
-
-	// If the node is up, ensure IsDown is false
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	for _, node := range d.nodes {
-		if node.IP == ip && node.Port == port {
-			fmt.Printf("Marking node %s:%d as up\n", ip, port)
-			node.IsDown = false
-			break
+	for key, item := range s.data {
+		if time.Now().After(item.expiry) {
+			delete(s.data, key)
 		}
 	}
-	return true
-}
-
-func (d *DHT) RemoveNode(node *Node) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	fmt.Printf("Attempting to remove node %s:%d\n", node.IP, node.Port)
-
-	// Find the node to remove
-	for i, n := range d.nodes {
-		if n.ID == node.ID {
-			fmt.Printf("Removing node %s:%d from nodes slice\n", node.IP, node.Port)
-			// Remove the node from the nodes slice
-			d.nodes = append(d.nodes[:i], d.nodes[i+1:]...)
-			break
-		}
-	}
-
-	// Re-distribute the node's data
-	for key, value := range node.Storage.GetAll() {
-		fmt.Printf("Re-distributing key '%s' after removing node %s:%d\n", key, node.IP, node.Port)
-		_ = d.redistributeKey(key, value, 3600)
-	}
-
-	// Remove the node from each k-bucket
-	fmt.Printf("Removing node %s:%d from k-buckets\n", node.IP, node.Port)
-	d.RemoveNodeFromBuckets(node)
-
-	// Notify all remaining nodes to remove this node from their peers
-	for _, remainingNode := range d.nodes {
-		remainingNode.RemovePeer(node.IP, node.Port)
-	}
-}
-
-func (d *DHT) redistributeKey(key, value string, ttl int) error {
-	hash := sha256.Sum256([]byte(key))
-	targetID := hex.EncodeToString(hash[:])
-	replicationFactor := d.getReplicationFactor()
-	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
-	if len(closestNodes) == 0 {
-		return errors.New("no suitable node found for storing the key")
-	}
-
-	// Remove the failed node from the closest nodes
-	closestNodes = removeFailedNode(closestNodes)
-
-	var err error
-	for _, node := range closestNodes {
-		err = node.Put(key, value, ttl)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func removeFailedNode(nodes []*Node) []*Node {
-	var liveNodes []*Node
-	for _, node := range nodes {
-		if !node.IsDown {
-			liveNodes = append(liveNodes, node)
-		}
-	}
-	return liveNodes
-}
-
-func (d *DHT) JoinNetwork(node *Node) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	d.nodes = append(d.nodes, node)
-	d.AddNodeToBuckets(node)
-
-	// Propagate the presence of the new node to existing nodes
-	for _, existingNode := range d.nodes {
-		if existingNode.ID != node.ID {
-			existingNode.AddPeer(node.ID, node.IP, node.Port)
-			node.AddPeer(existingNode.ID, existingNode.IP, existingNode.Port)
-		}
-	}
-}
-
-func (d *DHT) LeaveNetwork(node *Node) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	for i, n := range d.nodes {
-		if n.ID == node.ID {
-			d.nodes = append(d.nodes[:i], d.nodes[i+1:]...)
-			d.RemoveNodeFromBuckets(node)
-
-			// Notify all remaining nodes to remove this node from their peers
-			for _, remainingNode := range d.nodes {
-				remainingNode.RemovePeer(node.IP, node.Port)
-			}
-			return nil
-		}
-	}
-	return errors.New("node not found in the DHT")
-}
-
-func (d *DHT) AddNodeToBuckets(node *Node) {
-	for i := range d.kBuckets {
-		d.kBuckets[i].AddNode(node)
-	}
-}
-
-func (d *DHT) RemoveNodeFromBuckets(node *Node) {
-	for _, kBucket := range d.kBuckets {
-		kBucket.RemoveNode(node.ID)
-	}
-}
-
-func (d *DHT) GetNumNodes() []*Node {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	return d.nodes
-}
-
-func (d *DHT) GetKBuckets() []*KBucket {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	return d.kBuckets
-}
-
-func (d *DHT) DhtPut(key, value string, ttl int) error {
-	hash := sha256.Sum256([]byte(key))
-	targetID := hex.EncodeToString(hash[:])
-	replicationFactor := d.getReplicationFactor()
-	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
-	if len(closestNodes) == 0 {
-		return errors.New("no suitable node found for storing the key")
-	}
-
-	var err error
-	for _, node := range closestNodes {
-		err = node.Put(key, value, ttl)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *DHT) DhtGet(key string) (string, error) {
-	hash := sha256.Sum256([]byte(key))
-	targetID := hex.EncodeToString(hash[:])
-	replicationFactor := d.getReplicationFactor()
-	closestNodes := d.GetClosestNodes(targetID, replicationFactor)
-	if len(closestNodes) == 0 {
-		return "", errors.New("no suitable node found for retrieving the key")
-	}
-
-	var value string
-	var err error
-	for _, node := range closestNodes {
-		value, err = node.Get(key)
-		if err == nil {
-			return value, nil
-		}
-	}
-	return "", err
-}
-
-func (d *DHT) GetClosestNodes(targetID string, k int) []*Node {
-	var allNodes []*Node
-	d.mu.Lock()
-	for _, node := range d.nodes {
-		allNodes = append(allNodes, node)
-	}
-	d.mu.Unlock()
-
-	sort.Slice(allNodes, func(i, j int) bool {
-		return calculateDistance(targetID, allNodes[i].ID) < calculateDistance(targetID, allNodes[j].ID)
-	})
-
-	if len(allNodes) > k {
-		return allNodes[:k]
-	}
-	return allNodes
 }
