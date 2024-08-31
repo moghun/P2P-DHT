@@ -96,17 +96,6 @@ func TestHandleConnection(t *testing.T) {
 		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
 	})
 
-	t.Run("TestHandleBootstrap", func(t *testing.T) {
-		bootstrapData := fmt.Sprintf("127.0.0.1:%d", port)
-		bootstrapMsg := message.NewDHTBootstrapMessage(bootstrapData)
-		serializedMsg, err := bootstrapMsg.Serialize()
-		assert.NoError(t, err, "Failed to serialize message")
-		conn.readData = serializedMsg
-
-		api.HandleConnection(conn, &mockNode.Node)
-		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
-	})
-
 	t.Run("TestHandleInvalidMessage", func(t *testing.T) {
 		conn.readData = []byte{0x00, 0x01} // Invalid data
 		api.HandleConnection(conn, &mockNode.Node)

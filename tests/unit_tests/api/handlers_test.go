@@ -150,22 +150,22 @@ func TestHandleBootstrap(t *testing.T) {
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
-	realNode := &node.Node{
+	realNode := &node.BootstrapNode{
+		Node: node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		// Add a simple mock or a real peer setup here for testing GetAllPeers
+		},
+		KnownPeers: map[string]string{},
 	}
 
 	bootstrapMsg := message.NewDHTBootstrapMessage(bootstrapData)
 	_, err := bootstrapMsg.Serialize()
 	assert.NoError(t, err)
 
-	// Assume GetAllPeers returns a mocked list of peers
 	response := api.HandleBootstrap(bootstrapMsg, realNode)
 	assert.NotNil(t, response)
 
-	// Validate that the response contains peer information
 	deserializedResponse, err := message.DeserializeMessage(response)
 	assert.NoError(t, err)
 	assert.Equal(t, message.DHT_BOOTSTRAP_REPLY, deserializedResponse.GetType())
