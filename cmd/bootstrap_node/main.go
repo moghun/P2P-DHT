@@ -25,12 +25,16 @@ func main() {
 	// Set up logging
 	util.SetupLogging("bootstrap_node.log")
 
-	// Create a new node instance specifically for the bootstrap node
-	bootstrapNodeInstance := node.NewNode(config, 720 * time.Hour)
+	// Create a new BootstrapNode instance
+	bootstrapNodeInstance := node.NewBootstrapNode(config, 720*time.Hour)
+
+	// Hardcoded for now TODO or not TODO?
+	bootstrapNodeInstance.AddKnownPeer("nodeID1", "192.168.1.1", 8081)
+	bootstrapNodeInstance.AddKnownPeer("nodeID2", "192.168.1.2", 8082)
 
 	// Start the API server to handle bootstrap requests from other nodes
 	go func() {
-		err := api.StartServer(config.P2PAddress, bootstrapNodeInstance)
+		err := api.StartServer(config.P2PAddress, &bootstrapNodeInstance.Node)
 		if err != nil {
 			log.Fatalf("Failed to start API server: %v", err)
 		}

@@ -11,6 +11,14 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
+type NodeInterface interface {
+	Put(key, value string, ttl int) error
+	Get(key string) (string, error)
+	AddPeer(nodeID, ip string, port int)
+	GetAllPeers() []*Node
+}
+
+
 type Node struct {
 	ID       string
 	IP       string
