@@ -8,10 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
 func TestBootstrapSuccess(t *testing.T) {
-	port, err := GetFreePort()
+	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	config := &util.Config{
@@ -21,7 +22,7 @@ func TestBootstrapSuccess(t *testing.T) {
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 120*time.Second)
+	nodeInstance := node.NewNode(config, 24 * time.Hour)
 	nodeInstance.Network = &MockNetwork{ShouldFail: false}
 
 	err = nodeInstance.Bootstrap()
@@ -29,7 +30,7 @@ func TestBootstrapSuccess(t *testing.T) {
 }
 
 func TestBootstrapFailure(t *testing.T) {
-	port, err := GetFreePort()
+	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	config := &util.Config{
@@ -39,7 +40,7 @@ func TestBootstrapFailure(t *testing.T) {
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 120*time.Second)
+	nodeInstance := node.NewNode(config, 24 * time.Hour)
 	nodeInstance.Network = &MockNetwork{ShouldFail: true}
 
 	err = nodeInstance.Bootstrap()

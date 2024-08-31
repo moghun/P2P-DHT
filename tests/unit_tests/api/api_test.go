@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
 func TestStartServer(t *testing.T) {
 	// Dynamic port allocation
-	port, err := GetFreePort()
+	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 	mockNode := NewMockNode("127.0.0.1", port)
 
@@ -54,7 +55,7 @@ func TestStartServer(t *testing.T) {
 
 func TestHandleConnection(t *testing.T) {
 	// Dynamic port allocation
-	port, err := GetFreePort()
+	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 	mockNode := NewMockNode("127.0.0.1", port)
 

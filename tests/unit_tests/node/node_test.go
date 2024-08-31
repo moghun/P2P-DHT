@@ -9,6 +9,8 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
+
 )
 
 // TestNodeGenerateNodeID tests the GenerateNodeID function.
@@ -19,14 +21,14 @@ func TestNodeGenerateNodeID(t *testing.T) {
 
 // TestNewNodeInitialization tests the initialization of a new Node.
 func TestNewNodeInitialization(t *testing.T) {
-    port, err := GetFreePort()
+    port, err := tests.GetFreePort()
     assert.NoError(t, err, "Failed to get a free port")
 
     config := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
         EncryptionKey: []byte("1234567890123456"),
     }
-    nodeInstance := node.NewNode(config, 120*time.Second)
+    nodeInstance := node.NewNode(config, 24 * time.Hour)
 
     assert.NotNil(t, nodeInstance)
     assert.Equal(t, "127.0.0.1", nodeInstance.IP)
@@ -42,7 +44,7 @@ func TestNodePutAndGet(t *testing.T) {
 		P2PAddress:    "127.0.0.1:8080",
 		EncryptionKey: []byte("1234567890123456"),
 	}
-	nodeInstance := node.NewNode(config, 120 * time.Second)
+	nodeInstance := node.NewNode(config, 24 * time.Hour)
 
 	err := nodeInstance.Put("key1", "value1", 60)
 	assert.NoError(t, err)
@@ -57,7 +59,7 @@ func TestNodeStorageTTL(t *testing.T) {
 		P2PAddress:    "127.0.0.1:8080",
 		EncryptionKey: []byte("1234567890123456"),
 	}
-	nodeInstance := node.NewNode(config, 1* time.Second)
+	nodeInstance := node.NewNode(config, 24 * time.Hour)
 
 	err := nodeInstance.Put("key1", "value1", 1)
 	assert.NoError(t, err)
@@ -86,7 +88,7 @@ func TestNodeAddPeer(t *testing.T) {
 		P2PAddress:    "127.0.0.1:8080",
 		EncryptionKey: []byte("test_encryption_key"),
 	}
-	nodeInstance := node.NewNode(config)
+	nodeInstance := node.NewNode(config, 24 * time.Hour)
 
 	nodeID := node.GenerateNodeID("127.0.0.1", 8081)
 	nodeInstance.AddPeer(nodeID, "127.0.0.1", 8081)

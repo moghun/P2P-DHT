@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"github.com/stretchr/testify/assert"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
 func TestSendMessageSuccess(t *testing.T) {
-	receiverPort, err := GetFreePort()
+	receiverPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	receiverNode := NewMockNode("127.0.0.1", receiverPort).ToNode()
@@ -24,7 +25,7 @@ func TestSendMessageSuccess(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	senderPort, err := GetFreePort()
+	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	senderNode := NewMockNode("127.0.0.1", senderPort).ToNode()
@@ -37,7 +38,7 @@ func TestSendMessageSuccess(t *testing.T) {
 }
 
 func TestSendMessageFailure(t *testing.T) {
-	senderPort, err := GetFreePort()
+	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	senderNode := NewMockNode("127.0.0.1", senderPort).ToNode()
@@ -48,7 +49,7 @@ func TestSendMessageFailure(t *testing.T) {
 }
 
 func TestStartListening(t *testing.T) {
-	port, err := GetFreePort()
+	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
 	receiverNode := NewMockNode("127.0.0.1", port).ToNode()
