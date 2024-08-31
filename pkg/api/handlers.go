@@ -113,6 +113,9 @@ func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) 
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
 	nodeInstance = nodeInstance.(*node.Node)
 
+
+	//TODO:
+	//THIS METHOD MUST USE THE ADD PEER FUNCTIONALITY ETC. NOT LIKE THIS!
 	nodes := bootstrapReplyMsg.ParseNodes()
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)

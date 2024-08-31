@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
@@ -19,11 +20,11 @@ type NodeInterface interface {
 	GetAllPeers() []*Node
 }
 
-
 type Node struct {
 	ID       string
 	IP       string
 	Port     int
+	Nonce    int
 	Ping     bool
 	DHT      *dht.DHT
 	Storage  *storage.Storage
@@ -37,10 +38,14 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 
 	ip, port, _ := util.ParseAddress(config.P2PAddress)
 
+	// Generate a node ID using Proof of Work
+	id, nonce := security.GenerateNodeIDWithPoW(ip, port)
+
 	node := &Node{
-		ID:       GenerateNodeID(ip, port),
+		ID:       id,
 		IP:       ip,
 		Port:     port,
+		Nonce:    nonce,
 		Ping:     true,
 		DHT:      dht.NewDHT(ttl, config.EncryptionKey),
 		Storage:  storage.NewStorage(ttl, config.EncryptionKey),
@@ -52,13 +57,6 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 
 	go node.DHT.Join()
 	return node
-}
-
-// GenerateNodeID generates a unique ID for the node based on its IP and port.
-func GenerateNodeID(ip string, port int) string {
-	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 // Put stores a key-value pair in the node's storage with a specified TTL.
@@ -77,7 +75,13 @@ func (n *Node) Get(key string) (string, error) {
 
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
 func (n *Node) AddPeer(nodeID, ip string, port int) {
+	// Validate the node ID using PoW before adding the peer
+	if security.ValidateNodeIDWithPoW(ip, port, nodeID, n.Nonce) {
+		// Add the peer if validation passes
+		// Add peer logic here...
+	}
 }
+
 
 // RemovePeer is a placeholder for removing a peer from the node's routing table (mocked for now).
 func (n *Node) RemovePeer(ip string, port int) {
@@ -92,3 +96,12 @@ func (n *Node) GetAllPeers() []*Node {
 func (n *Node) GetClosestNodesToCurrNode(targetID string, k int) []*Node {
 	return nil
 }
+
+/*FOR TEST PURPOSES*/
+// GenerateNodeID generates a unique ID for the node based on its IP and port.
+func GenerateNodeID(ip string, port int) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+/**************************/
