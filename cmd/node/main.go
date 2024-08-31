@@ -26,7 +26,7 @@ func main() {
 	util.SetupLogging("node.log")
 
 	// Create a new node instance
-	nodeInstance := node.NewNode(config, time.Duration(config.TTL))
+	nodeInstance := node.NewNode(config, time.Duration(config.TTL) * time.Second)
 
 	// Bootstrap the node to join the network
 	err := nodeInstance.Bootstrap()

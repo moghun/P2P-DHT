@@ -48,6 +48,7 @@ func HandleFindNode(msg message.Message, nodeInstance *node.Node) []byte {
 	return successMsg
 }
 
+
 func HandleFindValue(msg message.Message, nodeInstance *node.Node) []byte {
 	findValueMsg := msg.(*message.DHTFindValueMessage)
 
@@ -92,5 +93,5 @@ func HandleBootstrapReply(msg message.Message, nodeInstance *node.Node) []byte {
 		log.Printf("Added node %s:%d to routing table.\n", nodeInfo.IP, nodeInfo.Port)
 	}
 
-	return nil // No need to respond to a BOOTSTRAP_REPLY message
+	return nil
 }

@@ -25,18 +25,16 @@ type storageItem struct {
 }
 
 func NewStorage(ttl time.Duration, key []byte) *Storage {
-	storage := &Storage{
-		data: make(map[string]*storageItem),
-		ttl:  ttl,
-		key:  key,
-	}
+    storage := &Storage{
+        data: make(map[string]*storageItem),
+        ttl:  ttl,
+        key:  key,
+    }
 
-	storage.StartCleanup(ttl)
+    storage.StartCleanup(ttl)
 
-	return storage
-
+    return storage
 }
-
 func (s *Storage) Put(key, value string, ttl int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -115,7 +113,6 @@ func (s *Storage) StartCleanup(interval time.Duration) {
     go func() {
         for {
             <-ticker.C
-            log.Println("Running cleanup...")
             s.CleanupExpired()
         }
     }()
