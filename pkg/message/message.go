@@ -55,6 +55,15 @@ func (m *BaseMessage) DeserializeHeader(data []byte) error {
 	return nil
 }
 
+// Serialize serializes the entire BaseMessage, including its header.
+func (m *BaseMessage) Serialize() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := m.SerializeHeader(buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // CreateMessage is a factory function for creating new messages when you know the type
 func CreateMessage(msgType int, data []byte) (Message, error) {
 	switch msgType {
