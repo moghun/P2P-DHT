@@ -31,42 +31,42 @@ func NewRoutingTable(nodeID string) *RoutingTable {
 }
 
 // AddNode adds a node to the appropriate KBucket.
-func (rt *RoutingTable) AddNode(node *KNode) {
-	bucketIndex := rt.BucketIndex(node.ID)
+func (rt *RoutingTable) AddNode(targetID *KNode) {
+	bucketIndex := BucketIndex(rt.NodeID, targetID.ID)
 	bucket := rt.Buckets[bucketIndex]
 
-	bucket.AddNode(node)
+	bucket.AddNode(targetID)
 }
 
 // RemoveNode removes a node from the routing table.
-func (rt *RoutingTable) RemoveNode(nodeID string) {
-	bucketIndex := rt.BucketIndex(nodeID)
+func (rt *RoutingTable) RemoveNode(targetID string) {
+	bucketIndex := BucketIndex(rt.NodeID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
-	bucket.RemoveNode(nodeID)
+	bucket.RemoveNode(targetID)
 }
 
-// GetClosestNodes returns the closest k nodes to the given ID.
-func (rt *RoutingTable) GetClosestNodes(targetID string, k int) []*KNode {
-	bucketIndex := rt.BucketIndex(targetID)
+// GetClosestNodes returns the closest k nodes to the given ID. //Basically FindNode RPC
+func (rt *RoutingTable) GetClosestNodes(originID string, targetID string) []*KNode {
+	bucketIndex := BucketIndex(originID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()
 	//SortNodes(nodes, targetID)
 
-	if len(nodes) <= k {
+	if len(nodes) <= K {
 		// If the bucket has less than k nodes, include nodes from other buckets
 		//TODO would we ever need to check more than Alpha*2 buckets?
 		for i := 1; i <= Alpha; i++ {
 			if bucketIndex-i >= 0 {
 				nodes = append(nodes, rt.Buckets[bucketIndex-i].GetNodes()...)
-				if len(nodes) >= k {
+				if len(nodes) >= K {
 					break
 				}
 			}
 			if bucketIndex+i < IDLength {
 				nodes = append(nodes, rt.Buckets[bucketIndex+i].GetNodes()...)
-				if len(nodes) >= k {
+				if len(nodes) >= K {
 					break
 				}
 			}
@@ -75,12 +75,12 @@ func (rt *RoutingTable) GetClosestNodes(targetID string, k int) []*KNode {
 
 	SortNodes(nodes, targetID)
 
-	return nodes[:k]
+	return nodes[:K]
 }
 
 // calculates the index of the bucket where a given targetID should be placed within the Kademlia node's routing table.
-func (rt *RoutingTable) BucketIndex(targetID string) int {
-	distance := XOR(rt.NodeID, targetID)
+func BucketIndex(originID string, targetID string) int {
+	distance := XOR(originID, targetID)
 	index := IDLength - 1
 	// find the highest-order bit that is set to 1 in the XOR distance.
 	for i := IDLength - 1; i >= 0; i-- {
