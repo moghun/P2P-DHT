@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
@@ -64,6 +65,7 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	// Asynchronously process FIND_NODE request
 	go func() {
 		// Implement your DHT logic here
+		//nodes := nodeInstance.FindNode(/* origin id */, string(findNodeMsg.Key))
 		log.Print("Is Node down?:", node.IsDown)
 	}()
 
@@ -75,11 +77,31 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	findValueMsg := msg.(*message.DHTFindValueMessage)
 	node := nodeInstance.(*node.Node)
 
+	var value string
+	var nodes []*dht.KNode
+	var err error
+
 	// Asynchronously process FIND_VALUE request
+	done := make(chan bool)
 	go func() {
-		// Implement DHT logic here
-		log.Print("Is Node down?:", node.IsDown)
+		value, nodes, err = nodeInstance.FindValue( /* origin id */ string("") /* target id */, string(""))
+
+		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
+	<-done
+
+	if err != nil {
+		log.Printf("Error processing FIND_VALUE in DHT: %v", err)
+		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+		return failureMsg
+	} else {
+		// TODO Handle success message serialization
+		if value != "" {
+			log.Printf("Value found: %s", value)
+		} else {
+			log.Printf("Value not found. Closest nodes: %v", nodes)
+		}
+	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
 	return successMsg
@@ -112,7 +134,6 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
 	nodeInstance = nodeInstance.(*node.Node)
-
 
 	//TODO:
 	//THIS METHOD MUST USE THE ADD PEER FUNCTIONALITY ETC. NOT LIKE THIS!
