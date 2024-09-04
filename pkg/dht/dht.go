@@ -18,9 +18,9 @@ type DHT struct {
 }
 
 // NewDHT creates a new instance of DHT.
-func NewDHT(ttl time.Duration, encryptionKey []byte) *DHT {
+func NewDHT(ttl time.Duration, encryptionKey []byte, nodeID string) *DHT {
 	return &DHT{
-		RoutingTable: NewRoutingTable(),
+		RoutingTable: NewRoutingTable(nodeID),
 		Storage:      NewDHTStorage(ttl, encryptionKey),
 	}
 }
