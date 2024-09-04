@@ -62,12 +62,26 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	findNodeMsg := msg.(*message.DHTFindNodeMessage)
 	node := nodeInstance.(*node.Node)
 
-	// Asynchronously process FIND_NODE request
+	var nodes []*dht.KNode
+	var err error
+
+	done := make(chan bool)
 	go func() {
-		// Implement your DHT logic here
-		//nodes := nodeInstance.FindNode(/* origin id */, string(findNodeMsg.Key))
-		log.Print("Is Node down?:", node.IsDown)
+		nodes, err = nodeInstance.FindNode( /* origin id */ string("") /* target id */, string(""))
+
+		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
+	<-done
+
+	if err != nil {
+		log.Printf("Error processing FIND_NODE in DHT: %v", err)
+
+		failureMsg, _ := message.NewDHTFailureMessage(findNodeMsg.Key).Serialize()
+		return failureMsg
+	} else {
+		// TODO Handle success message serialization
+		log.Printf("Closest nodes: %v", nodes)
+	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
 	return successMsg
