@@ -15,6 +15,17 @@ type KNode struct {
 	Port int
 }
 
+func (kn *KNode) Serialize() []byte {
+	return []byte(kn.ID + ":" + kn.IP + ":" + string(kn.Port))
+}
+
+func (kn *KNode) Deserialize(data []byte) *KNode {
+	kn.ID = string(data[:40])
+	kn.IP = string(data[41:53])
+	kn.Port = int(data[54])
+	return kn
+}
+
 // NewKBucket creates a new KBucket.
 func NewKBucket() *KBucket {
 	return &KBucket{
