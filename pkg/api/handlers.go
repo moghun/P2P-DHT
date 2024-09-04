@@ -81,6 +81,13 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	} else {
 		// TODO Handle success message serialization
 		log.Printf("Closest nodes: %v", nodes)
+
+		var nodeBytes []byte
+		for _, n := range nodes {
+			nodeBytes = append(nodeBytes, string(n.Serialize())...)
+		}
+		successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, nodeBytes).Serialize()
+		return successMsg
 	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
@@ -109,11 +116,20 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 		return failureMsg
 	} else {
-		// TODO Handle success message serialization
 		if value != "" {
 			log.Printf("Value found: %s", value)
+
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte(value)).Serialize()
+			return successMsg
 		} else {
 			log.Printf("Value not found. Closest nodes: %v", nodes)
+
+			var nodeBytes []byte
+			for _, n := range nodes {
+				nodeBytes = append(nodeBytes, string(n.Serialize())...)
+			}
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, nodeBytes).Serialize()
+			return successMsg
 		}
 	}
 
