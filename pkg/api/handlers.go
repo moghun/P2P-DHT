@@ -67,7 +67,7 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 
 	done := make(chan bool)
 	go func() {
-		nodes, err = nodeInstance.FindNode( /* origin id */ string("") /* target id */, string(""))
+		nodes, err = nodeInstance.FindNode(string(nodeInstance.GetID()), string(findNodeMsg.Key[:]))
 
 		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
@@ -98,7 +98,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	// Asynchronously process FIND_VALUE request
 	done := make(chan bool)
 	go func() {
-		value, nodes, err = nodeInstance.FindValue( /* origin id */ string("") /* target id */, string(""))
+		value, nodes, err = nodeInstance.FindValue(string(nodeInstance.GetID()), string(findValueMsg.Key[:]))
 
 		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
