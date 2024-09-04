@@ -16,6 +16,8 @@ import (
 type NodeInterface interface {
 	Put(key, value string, ttl int) error
 	Get(key string) (string, error)
+	FindNode(originID string, targetID string) ([]*dht.KNode, error)
+	FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error)
 	AddPeer(nodeID, ip string, port int)
 	GetAllPeers() []*Node
 }
@@ -71,6 +73,14 @@ func (n *Node) Get(key string) (string, error) {
 		return "", err
 	}
 	return value, nil
+}
+
+func (n *Node) FindNode(originID string, targetID string) ([]*dht.KNode, error) {
+	return n.DHT.FindNode(originID, targetID)
+}
+
+func (n *Node) FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error) {
+	return n.DHT.FindValue(originID, targetKeyID)
 }
 
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
