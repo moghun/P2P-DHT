@@ -38,7 +38,6 @@ func (d *DHT) GET(key string) (string, error) {
 func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, error) {
 	value, err := d.GET(targetKeyID)
 	if err != nil {
-		// TODO handle error
 		return "", nil, err
 	}
 
@@ -65,6 +64,7 @@ func (d *DHT) FindNode(originID string, targetID string) ([]*KNode, error) {
 	return nodes, nil
 }
 
+// TODO we dont need join leave here?
 // Join allows the node to join the DHT network.
 func (d *DHT) Join() {
 	// Mock implementation

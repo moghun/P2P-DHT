@@ -62,9 +62,3 @@ func (kb *KBucket) RemoveNode(nodeID string) {
 func (kb *KBucket) GetNodes() []*KNode {
 	return kb.Nodes
 }
-
-// Contains checks if a node is in the KBucket.
-// TODO is this needed?
-func (kb *KBucket) Contains(node *KNode) bool {
-	return false
-}

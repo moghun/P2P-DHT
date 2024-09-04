@@ -52,7 +52,6 @@ func (rt *RoutingTable) GetClosestNodes(originID string, targetID string) []*KNo
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()
-	//SortNodes(nodes, targetID)
 
 	if len(nodes) <= K {
 		// If the bucket has less than k nodes, include nodes from other buckets
