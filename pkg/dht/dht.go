@@ -35,6 +35,36 @@ func (d *DHT) GET(key string) (string, error) {
 	return d.Storage.Get(key)
 }
 
+func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, error) {
+	value, err := d.GET(targetKeyID)
+	if err != nil {
+		// TODO handle error
+		return "", nil, err
+	}
+
+	// Found value
+	if value != "" {
+		return value, nil, nil
+	}
+
+	// If the value is not found in the closest nodes, perform a FindNode RPC
+	nodes := d.RoutingTable.GetClosestNodes(originID, targetKeyID)
+	if len(nodes) == 0 {
+		return "", nil, errors.New("no nodes found")
+	}
+
+	return "", nodes, nil
+}
+
+func (d *DHT) FindNode(originID string, targetID string) ([]*KNode, error) {
+	nodes := d.RoutingTable.GetClosestNodes(originID, targetID)
+	if len(nodes) == 0 {
+		return nil, errors.New("no nodes found")
+	}
+
+	return nodes, nil
+}
+
 // Join allows the node to join the DHT network.
 func (d *DHT) Join() {
 	// Mock implementation
