@@ -109,30 +109,47 @@ func SortNodes(nodes []*KNode, targetID string) {
 }
 
 func (rt *RoutingTable) IterativeFindNode(targetID string) []*KNode {
-	closestNodes := rt.GetClosestNodes(rt.NodeID, targetID)
+	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
+	closestNodeDistance := XOR(shortlist[0].ID, targetID)
+	lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
 
-	for len(closestNodes) > 0 {
-		minQueryCount := min(len(closestNodes), Alpha)
-		alphaNodes := closestNodes[:minQueryCount]
-		closestNodes = closestNodes[minQueryCount:]
+	for len(shortlist) > 0 {
+		minQueryCount := min(len(shortlist), Alpha)
+		alphaNodes := shortlist[:minQueryCount]
+		shortlist = shortlist[minQueryCount:]
 
 		for _, node := range alphaNodes {
 			if queriedNodes[node.ID] {
 				continue
 			}
 			queriedNodes[node.ID] = true
-			foundNodes := node.FindNodeRPC(targetID) //Simulate RPC call
-			closestNodes = append(closestNodes, foundNodes...)
-			SortNodes(closestNodes, targetID)
 
-			if len(closestNodes) >= K {
+			foundNodes := node.FindNodeRPC(targetID) //Simulate RPC call
+
+			for _, foundNode := range foundNodes {
+				/* if foundNode.ID == targetID {
+					return []*KNode{foundNode}
+				} //FindValue */
+				if !queriedNodes[foundNode.ID] { //Don't add nodes that have already been queried
+					shortlist = append(shortlist, foundNode)
+				}
+			}
+			SortNodes(shortlist, targetID)
+
+			if len(shortlist) >= K { // TODO Not sure about this
+				break
+			}
+		}
+
+		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
+			if lastClosestNode.ID == shortlist[0].ID {
 				break
 			}
 		}
 	}
 
-	return closestNodes[:min(len(closestNodes), K)]
+	return shortlist[:min(len(shortlist), K)]
 }
 
 // mock rpc call
