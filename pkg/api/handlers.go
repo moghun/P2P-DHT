@@ -113,6 +113,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 
 	if err != nil {
 		log.Printf("Error processing FIND_VALUE in DHT: %v", err)
+
 		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 		return failureMsg
 	} else {

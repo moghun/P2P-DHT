@@ -1,6 +1,10 @@
 package dht
 
-import "sync"
+import (
+	"bytes"
+	"encoding/gob"
+	"sync"
+)
 
 // KBucket represents a bucket in the Kademlia routing table.
 type KBucket struct {
@@ -15,15 +19,26 @@ type KNode struct {
 	Port int
 }
 
-func (kn *KNode) Serialize() []byte {
-	return []byte(kn.ID + ":" + kn.IP + ":" + string(kn.Port))
+// Serialize serializes the KNode struct to a byte array.
+func (k *KNode) Serialize() []byte {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(k)
+	if err != nil {
+		return nil
+	}
+	return buffer.Bytes()
 }
 
-func (kn *KNode) Deserialize(data []byte) *KNode {
-	kn.ID = string(data[:40])
-	kn.IP = string(data[41:53])
-	kn.Port = int(data[54])
-	return kn
+// Deserialize deserializes a byte array into the KNode struct.
+func (k *KNode) Deserialize(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buffer)
+	err := decoder.Decode(k)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewKBucket creates a new KBucket.
