@@ -107,3 +107,42 @@ func SortNodes(nodes []*KNode, targetID string) {
 		return distanceI.Cmp(distanceJ) < 0
 	})
 }
+
+func (rt *RoutingTable) IterativeFindNode(targetID string) []*KNode {
+	closestNodes := rt.GetClosestNodes(rt.NodeID, targetID)
+	queriedNodes := make(map[string]bool)
+
+	for len(closestNodes) > 0 {
+		minQueryCount := min(len(closestNodes), Alpha)
+		alphaNodes := closestNodes[:minQueryCount]
+		closestNodes = closestNodes[minQueryCount:]
+
+		for _, node := range alphaNodes {
+			if queriedNodes[node.ID] {
+				continue
+			}
+			queriedNodes[node.ID] = true
+			foundNodes := node.FindNodeRPC(targetID) //Simulate RPC call
+			closestNodes = append(closestNodes, foundNodes...)
+			SortNodes(closestNodes, targetID)
+
+			if len(closestNodes) >= K {
+				break
+			}
+		}
+	}
+
+	return closestNodes[:min(len(closestNodes), K)]
+}
+
+// mock rpc call
+func (kn *KNode) FindNodeRPC(targetID string) []*KNode {
+	return []*KNode{}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
