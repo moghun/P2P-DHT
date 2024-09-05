@@ -157,6 +157,56 @@ func (kn *KNode) FindNodeRPC(targetID string) []*KNode {
 	return []*KNode{}
 }
 
+func (rt *RoutingTable) IterativeFindValue(targetID string) (string, []*KNode) {
+	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
+	closestNodeDistance := XOR(shortlist[0].ID, targetID)
+	lastClosestNode := shortlist[0]
+	queriedNodes := make(map[string]bool)
+
+	for len(shortlist) > 0 {
+		minQueryCount := min(len(shortlist), Alpha)
+		alphaNodes := shortlist[:minQueryCount]
+		shortlist = shortlist[minQueryCount:]
+
+		for _, node := range alphaNodes {
+			if queriedNodes[node.ID] {
+				continue
+			}
+			queriedNodes[node.ID] = true
+
+			value, foundNodes := node.FindValueRPC(targetID) //Simulate RPC call
+
+			if value != "" {
+				return value, nil
+			}
+
+			for _, foundNode := range foundNodes {
+				if !queriedNodes[foundNode.ID] { //Don't add nodes that have already been queried
+					shortlist = append(shortlist, foundNode)
+				}
+			}
+			SortNodes(shortlist, targetID)
+
+			if len(shortlist) >= K { // TODO Not sure about this
+				break
+			}
+		}
+
+		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
+			if lastClosestNode.ID == shortlist[0].ID {
+				break
+			}
+		}
+	}
+
+	return "", shortlist[:min(len(shortlist), K)]
+}
+
+// mock rpc call
+func (kn *KNode) FindValueRPC(targetID string) (string, []*KNode) {
+	return "", []*KNode{}
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
