@@ -132,19 +132,15 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 
 			value, foundNodes := node.FindValueRPC(targetID) //Simulate RPC call
 
-			// msg, msgCreationErr := message.CreateMessage(message.DHTFindValue, []byte(targetID))
-			// rpcMessage, serializationErr := msg.Serialize()
+			msg, msgCreationErr := message.CreateMessage(message.DHT_FIND_VALUE, []byte(targetID))
+			rpcMessage, serializationErr := msg.Serialize()
 
-			idKey := [32]byte{}
-			copy(idKey[:], []byte(targetID))
-			findValueMsg, msgCreationErr := message.NewDHTFindValueMessage(idKey).Serialize()
-
-			if msgCreationErr != nil { //TODO handle error
-				log.Printf("Error creating message: %v", msgCreationErr)
+			if msgCreationErr != nil || serializationErr != nil { //TODO handle error
+				log.Printf("Error creating/serializing message: %v, %v", msgCreationErr, serializationErr)
 				return "", nil
 			}
 
-			responseErr := d.Network.SendMessage(node.IP, node.Port, findValueMsg)
+			responseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if responseErr != nil { //TODO handle error
 				log.Printf("Error sending message: %v", responseErr)
 				return "", nil
