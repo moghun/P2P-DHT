@@ -140,7 +140,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 				return "", nil
 			}
 
-			responseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
+			_, responseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if responseErr != nil { //TODO handle error
 				log.Printf("Error sending message: %v", responseErr)
 				return "", nil

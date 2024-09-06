@@ -26,22 +26,30 @@ func NewNetwork(ip string, id string, port int) *Network {
 	}
 }
 
-// SendMessage sends a message to a target node specified by IP and port.
-func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) error {
+// SendMessage sends a message to a target node specified by IP and port and waits for a response.
+func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) ([]byte, error) {
 	addr := fmt.Sprintf("%s:%d", targetIP, targetPort)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("failed to connect to target node: %v", err)
+		return nil, fmt.Errorf("failed to connect to target node: %v", err)
 	}
 	defer conn.Close()
 
+	// Send the data
 	_, err = conn.Write(data)
 	if err != nil {
-		return fmt.Errorf("failed to send message: %v", err)
+		return nil, fmt.Errorf("failed to send message: %v", err)
 	}
 
-	fmt.Printf("Sent message to %s: %x\n", addr, data)
-	return nil
+	// Now, wait for a response
+	buf := make([]byte, 1024)
+	response, err := conn.Read(buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	fmt.Printf("Received response from %s: %x\n", addr, buf[:response])
+	return buf[:response], nil
 }
 
 // StartListening starts a TCP server to listen for incoming messages from other nodes.
