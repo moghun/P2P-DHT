@@ -7,18 +7,16 @@ import (
 
 type DHTFindValueMessage struct {
 	BaseMessage
-	Key  [32]byte
-	Data []byte
+	Key [32]byte
 }
 
-func NewDHTFindValueMessage(key [32]byte, data []byte) *DHTFindValueMessage {
+func NewDHTFindValueMessage(key [32]byte) *DHTFindValueMessage {
 	return &DHTFindValueMessage{
 		BaseMessage: BaseMessage{
 			Size: 36,
 			Type: DHT_FIND_VALUE,
 		},
-		Key:  key,
-		Data: data,
+		Key: key,
 	}
 }
 
@@ -30,9 +28,6 @@ func (m *DHTFindValueMessage) Serialize() ([]byte, error) {
 	if _, err := buf.Write(m.Key[:]); err != nil {
 		return nil, err
 	}
-	if _, err := buf.Write(m.Data); err != nil {
-		return nil, err
-	}
 	return buf.Bytes(), nil
 }
 
@@ -42,10 +37,6 @@ func (m *DHTFindValueMessage) Deserialize(data []byte) (Message, error) {
 	}
 	reader := bytes.NewReader(data[4:])
 	if err := binary.Read(reader, binary.BigEndian, &m.Key); err != nil {
-		return nil, err
-	}
-	m.Data = make([]byte, m.Size-36) //TODO check byte size
-	if _, err := reader.Read(m.Data); err != nil {
 		return nil, err
 	}
 	return m, nil
