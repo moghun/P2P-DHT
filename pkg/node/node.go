@@ -50,7 +50,7 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 		Port:    port,
 		Nonce:   nonce,
 		Ping:    true,
-		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id),
+		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
 		Storage: storage.NewStorage(ttl, config.EncryptionKey),
 		IsDown:  false,
 		Config:  config, // Set the configuration
