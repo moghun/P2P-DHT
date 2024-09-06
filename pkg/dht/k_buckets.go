@@ -20,7 +20,7 @@ type KNode struct {
 }
 
 // Serialize serializes the KNode struct to a byte array.
-func (k *KNode) Serialize() []byte {
+func (k *KNode) Serialize() []byte { //TODO change name
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	err := encoder.Encode(k)
