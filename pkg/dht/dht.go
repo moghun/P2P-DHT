@@ -112,7 +112,8 @@ func (rt *RoutingTable) IterativeFindNode(targetID string) []*KNode {
 	return shortlist[:min(len(shortlist), K)]
 }
 
-func (rt *RoutingTable) IterativeFindValue(targetID string) (string, []*KNode) {
+func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
+	rt := d.RoutingTable
 	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
 	closestNodeDistance := XOR(shortlist[0].ID, targetID)
 	lastClosestNode := shortlist[0]
@@ -131,6 +132,25 @@ func (rt *RoutingTable) IterativeFindValue(targetID string) (string, []*KNode) {
 
 			value, foundNodes := node.FindValueRPC(targetID) //Simulate RPC call
 
+			// msg, msgCreationErr := message.CreateMessage(message.DHTFindValue, []byte(targetID))
+			// rpcMessage, serializationErr := msg.Serialize()
+
+			idKey := [32]byte{}
+			copy(idKey[:], []byte(targetID))
+			findValueMsg, msgCreationErr := message.NewDHTFindValueMessage(idKey).Serialize()
+
+			if msgCreationErr != nil { //TODO handle error
+				log.Printf("Error creating message: %v", msgCreationErr)
+				return "", nil
+			}
+
+			responseErr := d.Network.SendMessage(node.IP, node.Port, findValueMsg)
+			if responseErr != nil { //TODO handle error
+				log.Printf("Error sending message: %v", responseErr)
+				return "", nil
+			}
+			// TODO how to listen for response?
+
 			if value != "" {
 				return value, nil
 			}
@@ -142,7 +162,7 @@ func (rt *RoutingTable) IterativeFindValue(targetID string) (string, []*KNode) {
 			}
 			SortNodes(shortlist, targetID)
 
-			if len(shortlist) >= K { // TODO Not sure about this
+			if len(shortlist) >= K { // TODO Not sure about this, needs testing
 				break
 			}
 		}
