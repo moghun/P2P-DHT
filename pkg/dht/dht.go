@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
@@ -15,13 +16,15 @@ import (
 type DHT struct {
 	RoutingTable *RoutingTable
 	Storage      *DHTStorage
+	Network      *message.Network
 }
 
 // NewDHT creates a new instance of DHT.
-func NewDHT(ttl time.Duration, encryptionKey []byte, nodeID string) *DHT {
+func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port int) *DHT {
 	return &DHT{
-		RoutingTable: NewRoutingTable(nodeID),
+		RoutingTable: NewRoutingTable(id),
 		Storage:      NewDHTStorage(ttl, encryptionKey),
+		Network:      message.NewNetwork(id, ip, port),
 	}
 }
 
@@ -82,6 +85,7 @@ func (rt *RoutingTable) IterativeFindNode(targetID string) []*KNode {
 			queriedNodes[node.ID] = true
 
 			foundNodes := node.FindNodeRPC(targetID) //Simulate RPC call
+			//message.Network.SendMessage(node.IP, node.Port, []byte("FindNode"))
 
 			for _, foundNode := range foundNodes {
 				/* if foundNode.ID == targetID {

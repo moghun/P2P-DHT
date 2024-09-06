@@ -142,7 +142,9 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	bootstrapMsg := msg.(*message.DHTBootstrapMessage)
 	nodeInstance = nodeInstance.(*node.BootstrapNode) //BOOTSTRAP NODE
 
-	ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
+	nodeInstance.AddPeer()
+
+	/* ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
 	log.Printf("Handling bootstrap request from node: %s", ipPort)
 
 	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
@@ -155,7 +157,7 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	for _, peer := range peers {
 		// Implement logic to filter or manipulate peer data as needed
 		log.Println(peer)
-	}
+	} */
 
 	responseString := strings.Join(responseData, "\n")
 	bootstrapReplyMsg, _ := message.NewDHTBootstrapReplyMessage([]byte(responseString)).Serialize()
@@ -166,14 +168,29 @@ func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) 
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
 	nodeInstance = nodeInstance.(*node.Node)
 
+	nodes, err := nodeInstance.FindNode(nodeInstance.GetID())
+
+	if err != nil {
+		log.Printf("Error processing BOOTSTRAP_REPLY in DHT: %v", err)
+		failureMsg, _ := message.NewDHTFailureMessage(bootstrapReplyMsg.Key).Serialize()
+		return failureMsg
+	}
+
+	var nodeBytes []byte
+	for _, n := range nodes {
+		nodeBytes = append(nodeBytes, string(n.Serialize())...)
+	}
+	successMsg, _ := message.NewDHTSuccessMessage(bootstrapReplyMsg.Key, nodeBytes).Serialize()
+	return successMsg
+
 	//TODO:
 	//THIS METHOD MUST USE THE ADD PEER FUNCTIONALITY ETC. NOT LIKE THIS!
-	nodes := bootstrapReplyMsg.ParseNodes()
+	/* nodes := bootstrapReplyMsg.ParseNodes()
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
 		nodeInstance.AddPeer(nodeID, nodeInfo.IP, nodeInfo.Port)
 		log.Printf("Added node %s:%d to routing table.\n", nodeInfo.IP, nodeInfo.Port)
-	}
+	} */
 
 	return nil
 }
