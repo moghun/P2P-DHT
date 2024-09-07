@@ -110,3 +110,15 @@ func DeserializeMessage(data []byte) (Message, error) {
 	// Deserialize the full message (including the header)
 	return msg.Deserialize(data)
 }
+
+// Convert string id to [32]byte
+func StringToByte32(id string) [32]byte {
+	var byteID [32]byte
+	copy(byteID[:], id)
+	return byteID
+}
+
+// Convert [32]byte to string
+func Byte32ToString(id [32]byte) string {
+	return string(id[:])
+}
