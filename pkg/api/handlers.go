@@ -136,6 +136,23 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	//return successMsg
 }
 
+func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
+	storeMsg := msg.(*message.DHTStoreMessage)
+	node := nodeInstance.(*node.Node)
+
+	done := make(chan bool)
+	go func() {
+		if err := node.DHT.Store(string(storeMsg.Key[:]), string(storeMsg.Value), int(storeMsg.TTL)); err != nil {
+			log.Printf("Error processing STORE in DHT: %v", err)
+		}
+		done <- true
+	}()
+	<-done
+
+	successMsg, _ := message.NewDHTSuccessMessage(storeMsg.Key, storeMsg.Value).Serialize()
+	return successMsg
+}
+
 func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapMsg := msg.(*message.DHTBootstrapMessage)
 	nodeInstance = nodeInstance.(*node.BootstrapNode) //BOOTSTRAP NODE

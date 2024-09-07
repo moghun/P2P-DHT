@@ -65,6 +65,8 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 			response = HandleFindNode(msg, nodeInstance)
 		case message.DHT_FIND_VALUE:
 			response = HandleFindValue(msg, nodeInstance)
+		case message.DHT_STORE:
+			response = HandleStore(msg, nodeInstance)
 		case message.DHT_BOOTSTRAP:
 			response = HandleBootstrap(msg, nodeInstance)
 		case message.DHT_BOOTSTRAP_REPLY:

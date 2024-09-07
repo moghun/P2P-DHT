@@ -15,8 +15,8 @@ const (
 	DHT_PING
 	DHT_PONG
 	DHT_FIND_NODE
-	DHT_NODE_REPLY
 	DHT_FIND_VALUE
+	DHT_STORE
 	DHT_BOOTSTRAP
 	DHT_BOOTSTRAP_REPLY
 )
@@ -83,6 +83,8 @@ func CreateMessage(msgType int, data []byte) (Message, error) {
 		return NewDHTFindNodeMessage([32]byte{}), nil // Placeholder for initialization
 	case DHT_FIND_VALUE:
 		return NewDHTFindValueMessage([32]byte{}), nil // Placeholder for initialization
+	case DHT_STORE:
+		return NewDHTStoreMessage(0, [32]byte{}, data), nil
 	case DHT_BOOTSTRAP:
 		return NewDHTBootstrapMessage(string(data)), nil
 	case DHT_BOOTSTRAP_REPLY:

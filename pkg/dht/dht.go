@@ -30,7 +30,72 @@ func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port 
 
 // PUT stores a value in the DHT.
 func (d *DHT) PUT(key, value string, ttl int) error {
-	return d.Storage.Put(key, value, ttl)
+	nodesToStore, err := d.FindNode(key)
+	if err != nil {
+		return err
+	}
+
+	failedNodes := make(map[string]*KNode)
+
+	for _, node := range nodesToStore {
+		response, err := d.SendStoreMessage(key, value, *node)
+
+		if err != nil {
+			log.Printf("Error sending message: %v", err)
+			return err
+		}
+
+		if response.GetType() == message.DHT_FAILURE {
+			failedNodes[node.ID] = node
+		}
+	}
+
+	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+		for _, node := range failedNodes {
+			response, err := d.SendStoreMessage(key, value, *node)
+
+			if err != nil {
+				log.Printf("Error sending retry message: %v", err)
+				return err
+			}
+
+			if response.GetType() == message.DHT_SUCCESS {
+				delete(failedNodes, node.ID)
+			}
+		}
+	}
+
+	if len(failedNodes) > 0 {
+		log.Printf("Failed nodes: %v", failedNodes)
+	}
+
+	return nil
+}
+
+func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Message, error) {
+	msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
+	rpcMessage, serializationErr := msg.Serialize()
+
+	if serializationErr != nil { //TODO handle error
+		log.Printf("Error creating/serializing message: %v", serializationErr)
+		return nil, serializationErr
+	}
+
+	//TODO wait for msgResponse
+	msgResponse, msgResponseErr := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
+	if msgResponseErr != nil { //TODO handle error
+		log.Printf("Error sending message: %v", msgResponseErr)
+		return nil, msgResponseErr
+	}
+
+	deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
+	// Deserialize the response to check if it contains a value or nodes
+	if deserializationErr != nil {
+		log.Printf("Error deserializing response: %v", deserializationErr)
+		return nil, deserializationErr
+	}
+
+	return deserializedResponse, nil
 }
 
 // GET retrieves a value from the DHT.
@@ -38,8 +103,12 @@ func (d *DHT) GET(key string) (string, error) {
 	return d.Storage.Get(key)
 }
 
+func (d *DHT) Store(key, value string, ttl int) error {
+	return d.Storage.Put(key, value, ttl)
+}
+
 func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
-	value, err := d.GET(targetKeyID)
+	value, err := d.Storage.Get(targetKeyID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -240,7 +309,7 @@ func (d *DHT) IterativeStore(key, value string) error {
 	failedNodes := make(map[string]*KNode)
 	for _, node := range nodesToPublishData {
 
-		msg := message.NewDHTPutMessage(0, 0, message.StringToByte32(key), []byte(value))
+		msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
 		rpcMessage, serializationErr := msg.Serialize()
 
 		if serializationErr != nil { //TODO handle error
@@ -268,7 +337,7 @@ func (d *DHT) IterativeStore(key, value string) error {
 
 	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
 		for _, node := range failedNodes {
-			msg := message.NewDHTPutMessage(0, 0, message.StringToByte32(key), []byte(value))
+			msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error
