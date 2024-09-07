@@ -117,7 +117,21 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 		return failureMsg
 	} else {
-		if value != "" {
+		successResponse := dht.SuccessMessageResponse{
+			Value: value,
+			Nodes: nodes,
+		}
+
+		if value != "" || nodes != nil {
+			log.Printf("Value or Nodes found")
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, successResponse.Serialize()).Serialize()
+			return successMsg
+		} else {
+			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+			return failureMsg
+		}
+
+		/* if value != "" {
 			log.Printf("Value found: %s", value)
 
 			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte(value)).Serialize()
@@ -131,7 +145,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 			}
 			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, nodeBytes).Serialize()
 			return successMsg
-		}
+		} */
 	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
