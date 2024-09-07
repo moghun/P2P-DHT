@@ -8,7 +8,8 @@ stages:
 
 variables:
   TEST_REPORT_DIR: test_results
-  TEST_REPORT: ${TEST_REPORT_DIR}/test_result_report.xml
+  UNIT_TEST_REPORT: ${TEST_REPORT_DIR}/unit_test_result_report.xml
+  INTEGRATION_TEST_REPORT: ${TEST_REPORT_DIR}/integration_test_result_report.xml
   TEST_OUTPUT: ${TEST_REPORT_DIR}/test_output.txt
   VENV_DIR: venv
 
@@ -24,13 +25,10 @@ setup:
   script:
     - go mod tidy
     - go mod vendor
-    - mkdir -p certificates/CA
-    - mkdir -p certificates/test
     - mkdir -p ${TEST_REPORT_DIR}
   artifacts:
     paths:
       - vendor/
-      - certificates/
       - ${TEST_REPORT_DIR}/
       - ${VENV_DIR}/
 
@@ -47,24 +45,41 @@ build:
   stage: build
   image: golang:1.19
   script:
-    - make build
+    # Build both node and bootstrap_node
+    - make build_node
+    - make build_bootstrap_node
   artifacts:
     paths:
-      - dht-node
+      - cmd/node/dht-node
+      - cmd/bootstrap_node/bootstrap-node
 
-test:
+unit_test:
   stage: test
   image: golang:1.19
   before_script:
     - go install github.com/jstemmer/go-junit-report@latest
     - . ${VENV_DIR}/bin/activate
   script:
-    - make test
+    - go test -v ./tests/unit_tests/... | go-junit-report > ${UNIT_TEST_REPORT}
   artifacts:
     paths:
       - ${TEST_REPORT_DIR}/
     reports:
-      junit: ${TEST_REPORT}
+      junit: ${UNIT_TEST_REPORT}
+
+integration_test:
+  stage: test
+  image: golang:1.19
+  before_script:
+    - go install github.com/jstemmer/go-junit-report@latest
+    - . ${VENV_DIR}/bin/activate
+  script:
+    - go test -v ./tests/integration_tests/... | go-junit-report > ${INTEGRATION_TEST_REPORT}
+  artifacts:
+    paths:
+      - ${TEST_REPORT_DIR}/
+    reports:
+      junit: ${INTEGRATION_TEST_REPORT}
 
 report:
   stage: report
@@ -73,10 +88,12 @@ report:
     - apt-get update && apt-get install -y xsltproc
     - . ${VENV_DIR}/bin/activate
   script:
-    - xsltproc ./project_utils/junit-xml-to-html.xsl ${TEST_REPORT} > ${TEST_REPORT_DIR}/test_result_report.html
+    - xsltproc ./project_utils/junit-xml-to-html.xsl ${UNIT_TEST_REPORT} > ${TEST_REPORT_DIR}/unit_test_result_report.html
+    - xsltproc ./project_utils/junit-xml-to-html.xsl ${INTEGRATION_TEST_REPORT} > ${TEST_REPORT_DIR}/integration_test_result_report.html
   artifacts:
     paths:
-      - ${TEST_REPORT_DIR}/test_result_report.html
+      - ${TEST_REPORT_DIR}/unit_test_result_report.html
+      - ${TEST_REPORT_DIR}/integration_test_result_report.html
 
 cleanup:
   stage: cleanup
@@ -84,9 +101,8 @@ cleanup:
   before_script:
     - apk add --no-cache make
   script:
-    - make clean-certs
+    - make clean
   artifacts:
     expire_in: 1 week
     paths:
-      - certificates/
-      - tests/certificates/
+      - tests/
