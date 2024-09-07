@@ -8,7 +8,7 @@ import (
 
 // NetworkInterface defines the interface for the Network struct
 type NetworkInterface interface {
-	SendMessage(targetIP string, targetPort int, data []byte) error
+	SendMessage(targetIP string, targetPort int, data []byte) ([]byte, error)
 	StartListening() error
 }
 
@@ -76,7 +76,6 @@ func (n *Network) StartListening() error {
 // handleConnection handles an incoming connection and processes the received data.
 func (n *Network) handleConnection(conn net.Conn) {
 	defer conn.Close()
-
 	buf := make([]byte, 1024)
 	for {
 		n, err := conn.Read(buf)
@@ -84,11 +83,16 @@ func (n *Network) handleConnection(conn net.Conn) {
 			if err.Error() != "EOF" {
 				log.Printf("Error reading from connection: %v", err)
 			}
-			return
+			if _, err := conn.Write([]byte("Failed")); err != nil {
+				log.Printf("Failed to send response: %v", err)
+				return
+			}
 		}
 
-		// Here you would add code to handle the message, such as deserializing it
-		// and calling appropriate functions on the node instance.
 		fmt.Printf("Received message from %s: %x\n", conn.RemoteAddr().String(), buf[:n])
+		if _, err := conn.Write([]byte("Success")); err != nil {
+			log.Printf("Failed to send response: %v", err)
+			return
+		}
 	}
 }
