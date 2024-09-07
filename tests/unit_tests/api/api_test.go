@@ -1,9 +1,9 @@
 package tests
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
-	"net"
 	"testing"
 	"time"
 
@@ -12,6 +12,18 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
+
+func setupTLSConnection(t *testing.T, address string) *tls.Conn {
+	// Set up the TLS config for the client
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true, // Skip certificate verification for testing purposes
+	}
+
+	// Establish a TLS connection to the server
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	assert.NoError(t, err)
+	return conn
+}
 
 func TestStartServer(t *testing.T) {
 	// Dynamic port allocation
@@ -25,10 +37,9 @@ func TestStartServer(t *testing.T) {
 	}()
 
 	// Give the server time to start
-	time.Sleep(2 * time.Second) // Increased the delay
+	time.Sleep(2 * time.Second)
 
-	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	assert.NoError(t, err, "Failed to connect to the API server")
+	conn := setupTLSConnection(t, fmt.Sprintf("127.0.0.1:%d", port))
 	defer conn.Close()
 
 	// Send a PING message to test the server
