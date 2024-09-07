@@ -1,9 +1,11 @@
 package dht
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -72,7 +74,7 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	return nil
 }
 
-func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Message, error) {
+func (d *DHT) SendStoreMessage2(key, value string, targetNode KNode) (message.Message, error) {
 	msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
 	rpcMessage, serializationErr := msg.Serialize()
 
@@ -98,6 +100,52 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 	return deserializedResponse, nil
 }
 
+func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Message, error) {
+	// Create a store message
+	msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
+	rpcMessage, serializationErr := msg.Serialize()
+
+	if serializationErr != nil {
+		log.Printf("Error creating/serializing message: %v", serializationErr)
+		return nil, serializationErr
+	}
+
+	// Create a context with timeout (e.g., 5 seconds)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel() // Ensures resources are cleaned up once the context is done
+
+	// Create a channel to handle the message response
+	responseChan := make(chan []byte)
+	errChan := make(chan error)
+
+	// Send the message asynchronously
+	go func() {
+		msgResponse, msgResponseErr := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
+		if msgResponseErr != nil {
+			errChan <- msgResponseErr
+			return
+		}
+		responseChan <- msgResponse
+	}()
+
+	// Wait for either a response, an error, or a timeout
+	select {
+	case msgResponse := <-responseChan:
+		// Deserialize the response
+		deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
+		if deserializationErr != nil {
+			log.Printf("Error deserializing response: %v", deserializationErr)
+			return nil, deserializationErr
+		}
+		log.Printf("Received response for PUT XXXX: %v", deserializedResponse)
+		return deserializedResponse, nil
+	case err := <-errChan:
+		return nil, err
+	case <-ctx.Done(): // Timeout occurred
+		return nil, fmt.Errorf("timeout waiting for response from node %s", targetNode.ID)
+	}
+}
+
 // GET retrieves a value from the DHT.
 func (d *DHT) GET(key string) (string, []*KNode, error) {
 	value, nodes, err := d.FindValue(key)
@@ -117,12 +165,27 @@ func (d *DHT) GET(key string) (string, []*KNode, error) {
 	return "", nodes, nil
 }
 
-func (d *DHT) Store(key, value string, ttl int) error {
+func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
+	value, err := d.Storage.Get(targetKeyID)
+	if err != nil {
+		return "", err
+	}
+
+	// Found value
+	if value != "" {
+		return value, nil
+	}
+
+	return "", errors.New("unexpected return path")
+}
+
+func (d *DHT) StoreToStorage(key, value string, ttl int) error {
 	return d.Storage.Put(key, value, ttl)
 }
 
 func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
-	value, err := d.Storage.Get(targetKeyID)
+	value, err := d.GetFromStorage(targetKeyID)
+
 	if err != nil {
 		return "", nil, err
 	}
