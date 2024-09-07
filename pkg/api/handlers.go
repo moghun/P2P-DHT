@@ -33,22 +33,28 @@ func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	node := nodeInstance.(*node.Node)
 
 	var value string
+	var nodes []*dht.KNode
 	var err error
 
 	// Asynchronously send GET request to DHT
 	done := make(chan bool)
 	go func() {
-		value, err = node.DHT.GET(string(getMsg.Key[:]))
+		value, nodes, err = node.DHT.GET(string(getMsg.Key[:]))
 		done <- true
 	}()
 	<-done
 
-	if err != nil || value == "" {
+	if err != nil || value == "" || nodes == nil {
 		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
 		return failureMsg
 	}
 
-	successMsg, _ := message.NewDHTSuccessMessage(getMsg.Key, []byte(value)).Serialize()
+	successResponse := dht.SuccessMessageResponse{
+		Value: value,
+		Nodes: nodes,
+	}
+
+	successMsg, _ := message.NewDHTSuccessMessage(getMsg.Key, successResponse.Serialize()).Serialize()
 	return successMsg
 }
 
@@ -82,11 +88,12 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 		// TODO Handle success message serialization
 		log.Printf("Closest nodes: %v", nodes)
 
-		var nodeBytes []byte
-		for _, n := range nodes {
-			nodeBytes = append(nodeBytes, string(n.Serialize())...)
+		successResponse := dht.SuccessMessageResponse{
+			Value: "",
+			Nodes: nodes,
 		}
-		successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, nodeBytes).Serialize()
+
+		successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, successResponse.Serialize()).Serialize()
 		return successMsg
 	}
 

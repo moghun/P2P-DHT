@@ -99,8 +99,22 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 }
 
 // GET retrieves a value from the DHT.
-func (d *DHT) GET(key string) (string, error) {
-	return d.Storage.Get(key)
+func (d *DHT) GET(key string) (string, []*KNode, error) {
+	value, nodes, err := d.FindValue(key)
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	if value != "" {
+		return value, nil, nil
+	}
+
+	if nodes == nil {
+		return "", nil, errors.New("no nodes found")
+	}
+
+	return "", nodes, nil
 }
 
 func (d *DHT) Store(key, value string, ttl int) error {
