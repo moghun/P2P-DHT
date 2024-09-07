@@ -8,6 +8,7 @@ import (
 )
 
 type MockNode struct {
+	ID   string
 	IP   string
 	Port int
 }
@@ -24,8 +25,9 @@ func (m *MockNode) GetNetwork() message.NetworkInterface {
 	return nil
 }
 
-func NewMockNode(ip string, port int) *MockNode {
+func NewMockNode(id string, ip string, port int) *MockNode {
 	return &MockNode{
+		ID:   id,
 		IP:   ip,
 		Port: port,
 	}

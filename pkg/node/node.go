@@ -11,6 +11,7 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type NodeInterface interface {
@@ -31,7 +32,7 @@ type Node struct {
 	Ping    bool
 	DHT     *dht.DHT
 	Storage *storage.Storage
-	Network NetworkInterface
+	Network message.NetworkInterface
 	Config  *util.Config
 	IsDown  bool
 	mu      sync.Mutex
@@ -56,7 +57,7 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 		Config:  config, // Set the configuration
 	}
 
-	node.Network = NewNetwork(node)
+	node.Network = message.NewNetwork(ip, id ,port)
 
 	go node.DHT.Join()
 	return node
