@@ -76,26 +76,3 @@ func TestNodeStorageTTL(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "", value) // Value should be empty after TTL expiration
 }
-
-
-/*
-
-NOT IMPLEMENTED
-
-// TestNodeAddPeer tests the AddPeer method of the Node.
-func TestNodeAddPeer(t *testing.T) {
-	config := &util.Config{
-		P2PAddress:    "127.0.0.1:8080",
-		EncryptionKey: []byte("test_encryption_key"),
-	}
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
-
-	nodeID := node.GenerateNodeID("127.0.0.1", 8081)
-	nodeInstance.AddPeer(nodeID, "127.0.0.1", 8081)
-
-	// Assuming GetAllPeers is mocked to return added peers
-	peers := nodeInstance.GetAllPeers()
-	assert.NotNil(t, peers)
-	assert.Equal(t, 1, len(peers))
-}
-*/
