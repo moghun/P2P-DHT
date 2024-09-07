@@ -169,7 +169,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error
-				log.Printf("Error serializing message: %v, %v", serializationErr)
+				log.Printf("Error serializing message: %v", serializationErr)
 				return "", nil
 			}
 

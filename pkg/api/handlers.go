@@ -90,8 +90,8 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 		return successMsg
 	}
 
-	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
-	return successMsg
+	//successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
+	//return successMsg
 }
 
 func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byte {
@@ -130,26 +130,10 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 			return failureMsg
 		}
-
-		/* if value != "" {
-			log.Printf("Value found: %s", value)
-
-			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte(value)).Serialize()
-			return successMsg
-		} else {
-			log.Printf("Value not found. Closest nodes: %v", nodes)
-
-			var nodeBytes []byte
-			for _, n := range nodes {
-				nodeBytes = append(nodeBytes, string(n.Serialize())...)
-			}
-			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, nodeBytes).Serialize()
-			return successMsg
-		} */
 	}
 
-	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
-	return successMsg
+	//successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
+	//return successMsg
 }
 
 func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byte {
