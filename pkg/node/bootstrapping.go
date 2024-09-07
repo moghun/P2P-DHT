@@ -55,10 +55,22 @@ func (n *Node) tryBootstrap() bool {
 		}
 
 		// Send the DHT_BOOTSTRAP message to the bootstrap node
-		err = n.Network.SendMessage(bootstrapNode.IP, bootstrapNode.Port, serializedMessage)
+		response, err := n.Network.SendMessage(bootstrapNode.IP, bootstrapNode.Port, serializedMessage)
 		if err != nil {
 			fmt.Printf("Failed to send DHT_BOOTSTRAP message to %s:%d: %v\n", bootstrapNode.IP, bootstrapNode.Port, err)
 			continue
+		}
+
+		deserializedResponse, deserializationErr := message.DeserializeMessage(response)
+		if deserializationErr != nil{
+			fmt.Printf("Error deserializing DHT_BOOTSTRAP_REPLY %v\n", deserializationErr)
+		}
+
+		switch response := deserializedResponse.(type) {
+			case *message.DHTBootstrapReplyMessage:
+				fmt.Print("DHT_BOOTSTRAP_REPLY SENT AT ", response.Timestamp, response.ParseNodes())
+
+				//TODO: HERE ADD THE BOOTSTRAP NODE ADDING LOGIC
 		}
 
 		return true

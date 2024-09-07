@@ -160,7 +160,7 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	log.Printf("Handling bootstrap request from node: %s", ipPort)
 
 	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
-		// Use BootstrapNode specific methods or handle the request accordingly -- TODO
+		//TODO: Use BootstrapNode specific methods or handle the request accordingly
 		bn.KnownPeers[ipPort] = "1"
 	}
 
@@ -176,27 +176,14 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	return bootstrapReplyMsg
 }
 
+
+
+
+//NOT TODO
 func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
 	nodeInstance = nodeInstance.(*node.Node)
-
-	/* nodes, err := nodeInstance.FindNode(nodeInstance.GetID())
-
-	if err != nil {
-		log.Printf("Error processing BOOTSTRAP_REPLY in DHT: %v", err)
-		failureMsg, _ := message.NewDHTFailureMessage(bootstrapReplyMsg.Key).Serialize()
-		return failureMsg
-	}
-
-	var nodeBytes []byte
-	for _, n := range nodes {
-		nodeBytes = append(nodeBytes, string(n.Serialize())...)
-	}
-	successMsg, _ := message.NewDHTSuccessMessage(bootstrapReplyMsg.Key, nodeBytes).Serialize()
-	return successMsg */
-
-	//TODO:
-	//THIS METHOD MUST USE THE ADD PEER FUNCTIONALITY ETC. NOT LIKE THIS!
+	
 	nodes := bootstrapReplyMsg.ParseNodes()
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
