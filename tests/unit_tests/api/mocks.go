@@ -17,7 +17,7 @@ type MockNode struct {
 
 func NewMockNode(ip string, port int) *MockNode {
 	storage := storage.NewStorage(24 * time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"),"1","127.0.0.1",8080)
 	return &MockNode{
 		Node: node.Node{
 			IP:      ip,
