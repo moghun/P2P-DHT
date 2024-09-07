@@ -121,6 +121,23 @@ func TestDHTFailureMessage(t *testing.T) {
 	assert.Equal(t, msg.Key, deserializedMsg.(*message.DHTFailureMessage).Key)
 }
 
+func TestDHTStoreMessage(t *testing.T) {
+
+	key := [32]byte{}
+	value := []byte("storevalue")
+	msg := message.NewDHTStoreMessage(10000, key, value)
+
+	serialized, err := msg.Serialize()
+	assert.NoError(t, err)
+
+	deserializedMsg, err := msg.Deserialize(serialized)
+	assert.NoError(t, err)
+	assert.IsType(t, &message.DHTStoreMessage{}, deserializedMsg)
+
+	assert.Equal(t, msg.Key, deserializedMsg.(*message.DHTStoreMessage).Key)
+	assert.Equal(t, msg.Value, deserializedMsg.(*message.DHTStoreMessage).Value)
+}
+
 func TestDHTBootstrapMessage(t *testing.T) {
 	address := "127.0.0.1:8080"
 	msg := message.NewDHTBootstrapMessage(address)

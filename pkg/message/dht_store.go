@@ -13,12 +13,12 @@ type DHTStoreMessage struct {
 	Value    []byte
 }
 
-func NewDHTStoreMessage(ttl uint16, key [32]byte, value []byte) *DHTPutMessage {
+func NewDHTStoreMessage(ttl uint16, key [32]byte, value []byte) *DHTStoreMessage {
 	size := uint16(40 + len(value))
-	return &DHTPutMessage{
+	return &DHTStoreMessage{
 		BaseMessage: BaseMessage{
 			Size: size,
-			Type: DHT_PUT,
+			Type: DHT_STORE,
 		},
 		TTL:   ttl,
 		Key:   key,
