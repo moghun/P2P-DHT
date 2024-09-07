@@ -90,7 +90,6 @@ func TestStartTLSListener(t *testing.T) {
 func TestDialTLS(t *testing.T) {
 	peerID := "peer-server"
 
-	// Get a free port dynamically
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
@@ -124,7 +123,7 @@ func TestDialTLS(t *testing.T) {
 		close(done)
 	}()
 
-	time.Sleep(1 * time.Second) // Ensure the listener is fully ready
+	time.Sleep(1 * time.Second)
 
 	// Simulate client dialing the TLS listener
 	t.Log("Client: Dialing TLS connection...")
@@ -147,7 +146,6 @@ func TestMutualTLSConnection(t *testing.T) {
 	peerIDServer := "peer-server"
 	peerIDClient := "peer-client"
 
-	// Get a free port dynamically
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
