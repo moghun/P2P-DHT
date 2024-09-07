@@ -10,6 +10,7 @@ const (
 	ReplicationFactor = 3
 	tRepublish        = 864
 	tReplicate        = 360
+	RetryLimit        = 3
 )
 
 // NewReplicationManager creates a new instance of ReplicationManager.
@@ -20,14 +21,12 @@ func NewReplicationManager(dht *DHT) *ReplicationManager {
 }
 
 // ReplicateData replicates the data to the necessary nodes in the DHT.
-func (rm *ReplicationManager) ReplicateData(key, value string) {
+func (rm *ReplicationManager) ReplicateData(key, value string) error {
 	// Mock implementation
-	//nodesToPublishData := rm.DHT.IterativeFindNode(key)
+	err := rm.DHT.IterativeStore(key, value)
+	if err != nil {
+		return err
+	}
 
-}
-
-// HandleReplicationRequest handles incoming replication requests from other nodes.
-func (rm *ReplicationManager) HandleReplicationRequest(key string) (string, error) {
-	// Mock implementation
-	return "", nil
+	return nil
 }

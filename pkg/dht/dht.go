@@ -233,11 +233,14 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 
 // IterativeStore stores a value in the DHT.
 func (d *DHT) IterativeStore(key, value string) error {
-	// Mock implementation
 	nodesToPublishData := d.IterativeFindNode(key)
+	if nodesToPublishData == nil {
+		return errors.New("no nodes found")
+	}
+	failedNodes := make(map[string]*KNode)
 	for _, node := range nodesToPublishData {
 
-		msg := message.NewDHTPutMessage(0, 0, message.StringToByte32(key), nil)
+		msg := message.NewDHTPutMessage(0, 0, message.StringToByte32(key), []byte(value))
 		rpcMessage, serializationErr := msg.Serialize()
 
 		if serializationErr != nil { //TODO handle error
@@ -253,24 +256,47 @@ func (d *DHT) IterativeStore(key, value string) error {
 		}
 
 		deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-		// Deserialize the response to check if it contains a value or nodes
 		if deserializationErr != nil {
 			log.Printf("Error deserializing response: %v", deserializationErr)
 			return deserializationErr
 		}
 
-		//Check if the deserialized response has value or nodes
-		switch response := deserializedResponse.(type) {
-		case *message.DHTSuccessMessage:
-			serializedSuccessResponse := response.Value
-			smr, deserializationErr := Deserialize(serializedSuccessResponse)
+		if deserializedResponse.GetType() == message.DHT_FAILURE {
+			failedNodes[node.ID] = node
+		}
+	}
 
+	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+		for _, node := range failedNodes {
+			msg := message.NewDHTPutMessage(0, 0, message.StringToByte32(key), []byte(value))
+			rpcMessage, serializationErr := msg.Serialize()
+
+			if serializationErr != nil { //TODO handle error
+				log.Printf("Error creating/serializing message: %v", serializationErr)
+				return serializationErr
+			}
+
+			//TODO wait for msgResponse
+			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
+			if msgResponseErr != nil { //TODO handle error
+				log.Printf("Error sending message: %v", msgResponseErr)
+				return msgResponseErr
+			}
+
+			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 			if deserializationErr != nil {
-				log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+				log.Printf("Error deserializing response: %v", deserializationErr)
 				return deserializationErr
 			}
-			smr.Value = value
+
+			if deserializedResponse.GetType() == message.DHT_SUCCESS {
+				delete(failedNodes, node.ID)
+			}
 		}
+	}
+
+	if len(failedNodes) > 0 {
+		log.Printf("Failed nodes: %v", failedNodes)
 	}
 
 	return nil
