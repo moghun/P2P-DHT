@@ -5,6 +5,13 @@ type ReplicationManager struct {
 	DHT *DHT
 }
 
+const (
+	// ReplicationFactor is the number of nodes that should store a copy of the data.
+	ReplicationFactor = 3
+	tRepublish        = 864
+	tReplicate        = 360
+)
+
 // NewReplicationManager creates a new instance of ReplicationManager.
 func NewReplicationManager(dht *DHT) *ReplicationManager {
 	return &ReplicationManager{
@@ -15,6 +22,8 @@ func NewReplicationManager(dht *DHT) *ReplicationManager {
 // ReplicateData replicates the data to the necessary nodes in the DHT.
 func (rm *ReplicationManager) ReplicateData(key, value string) {
 	// Mock implementation
+	//nodesToPublishData := rm.DHT.IterativeFindNode(key)
+
 }
 
 // HandleReplicationRequest handles incoming replication requests from other nodes.
