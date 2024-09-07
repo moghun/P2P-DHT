@@ -32,12 +32,11 @@ run_bootstrap: build_bootstrap_node
 # Test the project and generate a report
 test:
 	mkdir -p $(TEST_REPORT_DIR)
-	$(GOTEST) -v ./tests/ | tee $(TEST_OUTPUT) | go-junit-report > $(TEST_REPORT)
+	$(GOTEST) -v ./tests/... | tee $(TEST_OUTPUT) | go-junit-report > $(TEST_REPORT)
 	@echo "Test report generated at $(TEST_REPORT)"
 
 # Clean build artifacts
 clean:
-	$(GOCLEAN)
 	rm -f $(BINARY_NODE_NAME) $(BINARY_BOOTSTRAP_NAME)
 	rm -rf $(TEST_REPORT_DIR)
 
