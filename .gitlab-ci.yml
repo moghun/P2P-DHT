@@ -8,8 +8,7 @@ stages:
 
 variables:
   TEST_REPORT_DIR: test_results
-  UNIT_TEST_REPORT: ${TEST_REPORT_DIR}/unit_test_result_report.xml
-  INTEGRATION_TEST_REPORT: ${TEST_REPORT_DIR}/integration_test_result_report.xml
+  TEST_REPORT: ${TEST_REPORT_DIR}/test_result_report.xml
   TEST_OUTPUT: ${TEST_REPORT_DIR}/test_output.txt
   VENV_DIR: venv
 
@@ -45,41 +44,25 @@ build:
   stage: build
   image: golang:1.19
   script:
-    # Build both node and bootstrap_node
-    - make build_node
-    - make build_bootstrap_node
+    - make build
   artifacts:
     paths:
-      - cmd/node/dht-node
-      - cmd/bootstrap_node/bootstrap-node
+      - dht_node
+      - bootstrap_node
 
-unit_test:
+test:
   stage: test
   image: golang:1.19
   before_script:
     - go install github.com/jstemmer/go-junit-report@latest
     - . ${VENV_DIR}/bin/activate
   script:
-    - go test -v ./tests/unit_tests/... | go-junit-report > ${UNIT_TEST_REPORT}
+    - make test
   artifacts:
     paths:
       - ${TEST_REPORT_DIR}/
     reports:
-      junit: ${UNIT_TEST_REPORT}
-
-integration_test:
-  stage: test
-  image: golang:1.19
-  before_script:
-    - go install github.com/jstemmer/go-junit-report@latest
-    - . ${VENV_DIR}/bin/activate
-  script:
-    - go test -v ./tests/integration_tests/... | go-junit-report > ${INTEGRATION_TEST_REPORT}
-  artifacts:
-    paths:
-      - ${TEST_REPORT_DIR}/
-    reports:
-      junit: ${INTEGRATION_TEST_REPORT}
+      junit: ${TEST_REPORT}
 
 report:
   stage: report
@@ -88,12 +71,10 @@ report:
     - apt-get update && apt-get install -y xsltproc
     - . ${VENV_DIR}/bin/activate
   script:
-    - xsltproc ./project_utils/junit-xml-to-html.xsl ${UNIT_TEST_REPORT} > ${TEST_REPORT_DIR}/unit_test_result_report.html
-    - xsltproc ./project_utils/junit-xml-to-html.xsl ${INTEGRATION_TEST_REPORT} > ${TEST_REPORT_DIR}/integration_test_result_report.html
+    - xsltproc ./project_utils/junit-xml-to-html.xsl ${TEST_REPORT} > ${TEST_REPORT_DIR}/test_result_report.html
   artifacts:
     paths:
-      - ${TEST_REPORT_DIR}/unit_test_result_report.html
-      - ${TEST_REPORT_DIR}/integration_test_result_report.html
+      - ${TEST_REPORT_DIR}/test_result_report.html
 
 cleanup:
   stage: cleanup
@@ -104,5 +85,3 @@ cleanup:
     - make clean
   artifacts:
     expire_in: 1 week
-    paths:
-      - tests/
