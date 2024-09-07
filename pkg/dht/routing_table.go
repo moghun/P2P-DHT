@@ -47,8 +47,8 @@ func (rt *RoutingTable) RemoveNode(targetID string) {
 }
 
 // GetClosestNodes returns the closest k nodes to the given ID. //Basically FindNode RPC
-func (rt *RoutingTable) GetClosestNodes(originID string, targetID string) []*KNode {
-	bucketIndex := BucketIndex(originID, targetID)
+func (rt *RoutingTable) GetClosestNodes(targetID string) []*KNode {
+	bucketIndex := BucketIndex(rt.NodeID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()

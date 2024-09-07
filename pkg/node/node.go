@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type NodeInterface interface {
 	Put(key, value string, ttl int) error
 	Get(key string) (string, error)
-	FindNode(originID string, targetID string) ([]*dht.KNode, error)
-	FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error)
+	FindNode(targetID string) ([]*dht.KNode, error)
+	FindValue(targetKeyID string) (string, []*dht.KNode, error)
 	AddPeer(nodeID, ip string, port int)
 	GetAllPeers() []*Node
 	GetID() string
@@ -57,7 +57,7 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 		Config:  config, // Set the configuration
 	}
 
-	node.Network = message.NewNetwork(ip, id ,port)
+	node.Network = message.NewNetwork(ip, id, port)
 
 	go node.DHT.Join()
 	return node
@@ -77,12 +77,12 @@ func (n *Node) Get(key string) (string, error) {
 	return value, nil
 }
 
-func (n *Node) FindNode(originID string, targetID string) ([]*dht.KNode, error) {
-	return n.DHT.FindNode(originID, targetID)
+func (n *Node) FindNode(targetID string) ([]*dht.KNode, error) {
+	return n.DHT.FindNode(targetID)
 }
 
-func (n *Node) FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error) {
-	return n.DHT.FindValue(originID, targetKeyID)
+func (n *Node) FindValue(targetKeyID string) (string, []*dht.KNode, error) {
+	return n.DHT.FindValue(targetKeyID)
 }
 
 func (n *Node) GetID() string {

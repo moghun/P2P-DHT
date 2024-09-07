@@ -38,7 +38,7 @@ func (d *DHT) GET(key string) (string, error) {
 	return d.Storage.Get(key)
 }
 
-func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, error) {
+func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 	value, err := d.GET(targetKeyID)
 	if err != nil {
 		return "", nil, err
@@ -50,7 +50,7 @@ func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, 
 	}
 
 	// If the value is not found in the closest nodes, perform a FindNode RPC
-	nodes := d.RoutingTable.GetClosestNodes(originID, targetKeyID)
+	nodes := d.RoutingTable.GetClosestNodes(targetKeyID)
 	if len(nodes) == 0 {
 		return "", nil, errors.New("no nodes found")
 	}
@@ -58,8 +58,8 @@ func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, 
 	return "", nodes, nil
 }
 
-func (d *DHT) FindNode(originID string, targetID string) ([]*KNode, error) {
-	nodes := d.RoutingTable.GetClosestNodes(originID, targetID)
+func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
+	nodes := d.RoutingTable.GetClosestNodes(targetID)
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes found")
 	}
@@ -69,7 +69,7 @@ func (d *DHT) FindNode(originID string, targetID string) ([]*KNode, error) {
 
 func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
+	shortlist := rt.GetClosestNodes(targetID)
 	closestNodeDistance := XOR(shortlist[0].ID, targetID)
 	lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
@@ -149,7 +149,7 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 
 func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
+	shortlist := rt.GetClosestNodes(targetID)
 	closestNodeDistance := XOR(shortlist[0].ID, targetID)
 	lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
