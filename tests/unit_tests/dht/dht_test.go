@@ -325,3 +325,101 @@ func TestFindNode(t *testing.T) {
 		log.Print("ID:", node.ID)
 	}
 }
+
+func TestFindValue_NoValue(t *testing.T) {
+	// Initialize a real storage and node for testing
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht.RoutingTable.NodeID = hashedNodeId
+	newDht.Storage = store
+
+	var hashList []string
+	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
+		"id21", "id22", "id23", "id24", "id25", "id26", "id27", "id28", "id29", "id31", "id32", "id33", "id34", "id35", "id36", "id37", "id38", "id39", "id40"}
+	for _, id := range idList {
+		hashList = append(hashList, dht.EnsureKeyHashed(id))
+	}
+
+	for i, hash := range hashList {
+		newKNode := &dht.KNode{
+			ID:   hash,
+			IP:   "1",
+			Port: 8080,
+		}
+		log.Print("Adding node to routing table: ", i)
+		newDht.RoutingTable.AddNode(newKNode)
+	}
+
+	strKey := "id30"
+	strKey = dht.EnsureKeyHashed(strKey)
+
+	log.Print("Finding node closest to key:", strKey)
+	val, closestNodes, err := newDht.FindValue(strKey)
+	if err != nil {
+		assert.NoError(t, err, "FindNode should not return an error")
+	}
+
+	if val != "" {
+		log.Print("Value:", val)
+	} else {
+		log.Print("Value not found, nodes length: ", len(closestNodes))
+		for _, node := range closestNodes {
+			log.Print("ID:", node.ID)
+		}
+	}
+
+	assert.Equal(t, "", val, "FindValue should return an empty value")
+	assert.NotNil(t, closestNodes, "FindNode should return a list of closest nodes")
+	assert.NotEmpty(t, closestNodes, "FindNode should return a non-empty list of closest nodes")
+}
+
+func TestFindValue_WithValue(t *testing.T) {
+	// Initialize a real storage and node for testing
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht.RoutingTable.NodeID = hashedNodeId
+	newDht.Storage = store
+
+	var hashList []string
+	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
+		"id21", "id22", "id23", "id24", "id25", "id26", "id27", "id28", "id29", "id31", "id32", "id33", "id34", "id35", "id36", "id37", "id38", "id39", "id40"}
+	for _, id := range idList {
+		hashList = append(hashList, dht.EnsureKeyHashed(id))
+	}
+
+	for i, hash := range hashList {
+		newKNode := &dht.KNode{
+			ID:   hash,
+			IP:   "1",
+			Port: 8080,
+		}
+		log.Print("Adding node to routing table: ", i)
+		newDht.RoutingTable.AddNode(newKNode)
+	}
+
+	strKey := "id30"
+	strKey = dht.EnsureKeyHashed(strKey)
+
+	newDht.StoreToStorage(strKey, "value", 3600)
+
+	val, closestNodes, err := newDht.FindValue(strKey)
+	if err != nil {
+		assert.NoError(t, err, "FindNode should not return an error")
+	}
+
+	if val != "" {
+		log.Print("Value:", val)
+	} else {
+		log.Print("Value not found, nodes length: ", len(closestNodes))
+		for _, node := range closestNodes {
+			log.Print("ID:", node.ID)
+		}
+	}
+
+	assert.NotEqual(t, "", val, "FindValue should return a non-empty value")
+	assert.Equal(t, "value", val, "FindValue should return the correct value")
+}

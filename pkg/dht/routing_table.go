@@ -88,10 +88,6 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 	}
 
 	SortNodes(nodes, targetID)
-	log.Print("Nodes Sorted: ")
-	for i, node := range nodes {
-		log.Print("Node ", i, ": ", node.ID)
-	}
 
 	if len(nodes) > K {
 		return nodes[:K], nil

@@ -175,12 +175,13 @@ func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 		return "", err
 	}
 
-	// Found value
 	if value != "" {
 		return value, nil
+	} else {
+		return "", nil
 	}
 
-	return "", errors.New("unexpected return path")
+	//return "", errors.New("unexpected return path")
 }
 
 func (d *DHT) StoreToStorage(key, value string, ttl int) error {
