@@ -122,49 +122,77 @@ func TestHandlePing(t *testing.T) {
 }
 
 func TestHandleFindNode(t *testing.T) {
-	key := [32]byte{}
+	key := "id5"
+	hashedKey := dht.EnsureKeyHashed(key)
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	nodeId := "id15"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht.RoutingTable.NodeID = hashedNodeId
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		DHT:     dht,
+		DHT:     newDht,
 	}
 
-	findNodeMsg := message.NewDHTFindNodeMessage(key)
-	_, err := findNodeMsg.Serialize()
+	for i := 0; i < 10; i++ {
+		newNodeId := fmt.Sprintf("id%d", i)
+		newNodeHashedId := dht.EnsureKeyHashed(newNodeId)
+		newNode := &dht.KNode{
+			ID:   newNodeHashedId,
+			IP:   "127.0.0.1",
+			Port: 8080,
+		}
+		newDht.RoutingTable.AddNode(newNode)
+	}
+
+	byte32Key, err := message.HexStringToByte32(hashedKey)
+	assert.NoError(t, err)
+	findNodeMsg := message.NewDHTFindNodeMessage(byte32Key)
+	_, err = findNodeMsg.Serialize()
 	assert.NoError(t, err)
 
 	response := api.HandleFindNode(findNodeMsg, realNode)
 	assert.NotNil(t, response)
 
-	// Check that the response contains the correct value
 	deserializedResponse, err := message.DeserializeMessage(response)
 	assert.NoError(t, err)
-	_, ok := deserializedResponse.(*message.DHTSuccessMessage)
+	successMsg, ok := deserializedResponse.(*message.DHTSuccessMessage)
 	assert.True(t, ok)
+
+	deserializedSuccessMessage, err := dht.Deserialize(successMsg.Value)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(deserializedSuccessMessage.Nodes)) //TODO how to predict the number of nodes returned? (Added to kbuckets)
 }
 
 func TestHandleFindValue(t *testing.T) {
-	key := [32]byte{123}
+	key := "id5"
+	hashedKey := dht.EnsureKeyHashed(key)
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	nodeId := "id15"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht.RoutingTable.NodeID = hashedNodeId
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		DHT:     dht,
+		DHT:     newDht,
 	}
 
-	dht.PUT(string(key[:]), "received", 100)
+	err := newDht.PUT(hashedKey, "received", 100)
+	assert.NoError(t, err)
 
-	findValueMsg := message.NewDHTFindValueMessage(key)
-	_, err := findValueMsg.Serialize()
+	byte32Key, err := message.HexStringToByte32(hashedKey)
+	assert.NoError(t, err)
+
+	findValueMsg := message.NewDHTFindValueMessage(byte32Key)
+	_, err = findValueMsg.Serialize()
 	assert.NoError(t, err)
 
 	response := api.HandleFindValue(findValueMsg, realNode)
@@ -173,8 +201,12 @@ func TestHandleFindValue(t *testing.T) {
 	// Check that the response contains the correct value
 	deserializedResponse, err := message.DeserializeMessage(response)
 	assert.NoError(t, err)
-	_, ok := deserializedResponse.(*message.DHTSuccessMessage)
+	successMsg, ok := deserializedResponse.(*message.DHTSuccessMessage)
 	assert.True(t, ok)
+
+	deserializedSuccessMessage, err := dht.Deserialize(successMsg.Value)
+	assert.NoError(t, err)
+	assert.Equal(t, "received", string(deserializedSuccessMessage.Value))
 }
 
 func TestHandleStore(t *testing.T) {

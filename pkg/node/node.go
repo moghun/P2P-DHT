@@ -78,7 +78,11 @@ func (n *Node) Get(key string) (string, error) {
 }
 
 func (n *Node) FindNode(targetID string) ([]*dht.KNode, error) {
-	return n.DHT.FindNode(targetID)
+	nodes, err := n.DHT.FindNode(targetID)
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
 }
 
 func (n *Node) FindValue(targetKeyID string) (string, []*dht.KNode, error) {

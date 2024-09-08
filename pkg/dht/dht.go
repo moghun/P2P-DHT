@@ -226,7 +226,7 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 		return "", nil, err
 	}
 	if len(nodes) == 0 {
-		return "", nil, errors.New("no nodes found")
+		return "", nil, nil
 	}
 
 	return "", nodes, nil
