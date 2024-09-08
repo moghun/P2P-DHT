@@ -164,7 +164,7 @@ func (d *DHT) StoreToStorage(key, value string, ttl int) error {
 }
 
 func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
-	value, err := d.GetFromStorage(targetKeyID)
+	value, err := d.GetFromStorage(message.StringTo32ByteString(targetKeyID))
 
 	if err != nil {
 		return "", nil, err
