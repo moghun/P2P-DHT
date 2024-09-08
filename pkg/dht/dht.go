@@ -200,7 +200,10 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 	}
 
 	// If the value is not found in the closest nodes, perform a FindNode RPC
-	nodes := d.RoutingTable.GetClosestNodes(targetKeyID)
+	nodes, err := d.RoutingTable.GetClosestNodes(targetKeyID)
+	if err != nil {
+		return "", nil, err
+	}
 	if len(nodes) == 0 {
 		return "", nil, errors.New("no nodes found")
 	}
@@ -209,7 +212,10 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 }
 
 func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
-	nodes := d.RoutingTable.GetClosestNodes(targetID)
+	nodes, err := d.RoutingTable.GetClosestNodes(targetID)
+	if err != nil {
+		return nil, err
+	}
 	if len(nodes) == 0 {
 		return nil, errors.New("no nodes found")
 	}
@@ -217,9 +223,12 @@ func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 	return nodes, nil
 }
 
-func (d *DHT) IterativeFindNode(targetID string) []*KNode {
+func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(targetID)
+	shortlist, err := rt.GetClosestNodes(targetID)
+	if err != nil {
+		return nil, err
+	}
 	closestNodeDistance, _ := XOR(shortlist[0].ID, targetID)
 	//lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
@@ -240,21 +249,21 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 
 			if serializationErr != nil { //TODO handle error
 				log.Printf("Error creating/serializing message: %v", serializationErr)
-				return nil
+				return nil, serializationErr
 			}
 
 			//TODO wait for msgResponse
 			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if msgResponseErr != nil { //TODO handle error
 				log.Printf("Error sending message: %v", msgResponseErr)
-				return nil
+				return nil, msgResponseErr
 			}
 
 			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 			// Deserialize the response to check if it contains a value or nodes
 			if deserializationErr != nil {
 				log.Printf("Error deserializing response: %v", deserializationErr)
-				return nil
+				return nil, deserializationErr
 			}
 
 			//Check if the deserialized response has value or nodes
@@ -265,7 +274,7 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 
 				if deserializationErr != nil {
 					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
-					return nil
+					return nil, deserializationErr
 				}
 
 				for _, node := range smr.Nodes {
@@ -294,12 +303,15 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 		}
 	}
 
-	return shortlist[:min(len(shortlist), K)]
+	return shortlist[:min(len(shortlist), K)], nil
 }
 
-func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
+func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(targetID)
+	shortlist, err := rt.GetClosestNodes(targetID)
+	if err != nil {
+		return "", nil, err
+	}
 	closestNodeDistance, _ := XOR(shortlist[0].ID, targetID)
 	//lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
@@ -320,21 +332,21 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 
 			if serializationErr != nil { //TODO handle error
 				log.Printf("Error serializing message: %v", serializationErr)
-				return "", nil
+				return "", nil, serializationErr
 			}
 
 			//TODO wait for msgResponse
 			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if msgResponseErr != nil { //TODO handle error
 				log.Printf("Error sending message: %v", msgResponseErr)
-				return "", nil
+				return "", nil, msgResponseErr
 			}
 
 			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 			// Deserialize the response to check if it contains a value or nodes
 			if deserializationErr != nil {
 				log.Printf("Error deserializing response: %v", deserializationErr)
-				return "", nil
+				return "", nil, deserializationErr
 			}
 
 			//Check if the deserialized response has value or nodes
@@ -345,11 +357,11 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 
 				if deserializationErr != nil {
 					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
-					return "", nil
+					return "", nil, deserializationErr
 				}
 
 				if smr.Value != "" {
-					return smr.Value, nil
+					return smr.Value, nil, nil
 				}
 
 				for _, node := range smr.Nodes {
@@ -378,12 +390,15 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 		}
 	}
 
-	return "", shortlist[:min(len(shortlist), K)]
+	return "", shortlist[:min(len(shortlist), K)], nil
 }
 
 // IterativeStore stores a value in the DHT.
 func (d *DHT) IterativeStore(key, value string) error {
-	nodesToPublishData := d.IterativeFindNode(key)
+	nodesToPublishData, err := d.IterativeFindNode(key)
+	if err != nil {
+		return err
+	}
 	if nodesToPublishData == nil {
 		return errors.New("no nodes found")
 	}
