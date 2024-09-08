@@ -220,8 +220,8 @@ func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 	rt := d.RoutingTable
 	shortlist := rt.GetClosestNodes(targetID)
-	closestNodeDistance := XOR(shortlist[0].ID, targetID)
-	lastClosestNode := shortlist[0]
+	closestNodeDistance, _ := XOR(shortlist[0].ID, targetID)
+	//lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
 
 	for len(shortlist) > 0 {
@@ -287,10 +287,10 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 			}
 		}
 
-		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
-			if lastClosestNode.ID == shortlist[0].ID {
-				break
-			}
+		xorResult, _ := XOR(shortlist[0].ID, targetID)
+		//break if the closest node is not closer than the last closest node
+		if xorResult.Cmp(closestNodeDistance) >= 0 {
+			break
 		}
 	}
 
@@ -300,8 +300,8 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 	rt := d.RoutingTable
 	shortlist := rt.GetClosestNodes(targetID)
-	closestNodeDistance := XOR(shortlist[0].ID, targetID)
-	lastClosestNode := shortlist[0]
+	closestNodeDistance, _ := XOR(shortlist[0].ID, targetID)
+	//lastClosestNode := shortlist[0]
 	queriedNodes := make(map[string]bool)
 
 	for len(shortlist) > 0 {
@@ -371,10 +371,10 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 			}
 		}
 
-		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
-			if lastClosestNode.ID == shortlist[0].ID {
-				break
-			}
+		xorResult, _ := XOR(shortlist[0].ID, targetID)
+		//break if the closest node is not closer than the last closest node
+		if xorResult.Cmp(closestNodeDistance) >= 0 {
+			break
 		}
 	}
 

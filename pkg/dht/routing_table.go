@@ -1,6 +1,8 @@
 package dht
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 )
@@ -32,7 +34,7 @@ func NewRoutingTable(nodeID string) *RoutingTable {
 
 // AddNode adds a node to the appropriate KBucket.
 func (rt *RoutingTable) AddNode(targetID *KNode) {
-	bucketIndex := BucketIndex(rt.NodeID, targetID.ID)
+	bucketIndex, _ := BucketIndex(rt.NodeID, targetID.ID)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.AddNode(targetID)
@@ -40,7 +42,7 @@ func (rt *RoutingTable) AddNode(targetID *KNode) {
 
 // RemoveNode removes a node from the routing table.
 func (rt *RoutingTable) RemoveNode(targetID string) {
-	bucketIndex := BucketIndex(rt.NodeID, targetID)
+	bucketIndex, _ := BucketIndex(rt.NodeID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.RemoveNode(targetID)
@@ -48,7 +50,7 @@ func (rt *RoutingTable) RemoveNode(targetID string) {
 
 // GetClosestNodes returns the closest k nodes to the given ID. //Basically FindNode RPC
 func (rt *RoutingTable) GetClosestNodes(targetID string) []*KNode {
-	bucketIndex := BucketIndex(rt.NodeID, targetID)
+	bucketIndex, _ := BucketIndex(rt.NodeID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()
@@ -77,33 +79,96 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) []*KNode {
 	return nodes[:K]
 }
 
-// calculates the index of the bucket where a given targetID should be placed within the Kademlia node's routing table.
-func BucketIndex(originID string, targetID string) int {
-	distance := XOR(originID, targetID)
-	index := IDLength - 1
-	// find the highest-order bit that is set to 1 in the XOR distance.
-	for i := IDLength - 1; i >= 0; i-- {
-		if distance.Bit(i) == 1 {
-			break
-		}
-		index = i
+// Function to find the bucket index
+func BucketIndex(originID, targetID string) (int, error) {
+	xorResult, err := XOR(originID, targetID)
+	if err != nil {
+		return 0, err
 	}
-	return index
+
+	// Find the index of the most significant bit (MSB) set to 1
+	bucketIndex := xorResult.BitLen() - 1
+
+	return bucketIndex, nil
 }
 
 // calculates the XOR distance between two NodeIDs
-func XOR(a, b string) *big.Int {
-	result := new(big.Int)
-	for i := 0; i < len(a); i++ {
-		result = result.Or(result, big.NewInt(int64(a[i]^b[i])).Lsh(big.NewInt(0), uint(8*(len(a)-i-1))))
+// func XOR(a, b string) *big.Int {
+// 	result := new(big.Int)
+// 	for i := 0; i < len(a); i++ {
+// 		result = result.Or(result, big.NewInt(int64(a[i]^b[i])).Lsh(big.NewInt(0), uint(8*(len(a)-i-1))))
+// 	}
+// 	return result
+// }
+
+// XORDistance calculates the XOR distance between two hashed IDs.
+// func XOR(id1, id2 string) (int, error) {
+// 	// Convert hex strings to byte slices
+// 	bytes1, err := hex.DecodeString(id1)
+// 	if err != nil {
+// 		return 0, fmt.Errorf("invalid hex string for id1: %w", err)
+// 	}
+// 	bytes2, err := hex.DecodeString(id2)
+// 	if err != nil {
+// 		return 0, fmt.Errorf("invalid hex string for id2: %w", err)
+// 	}
+
+// 	// Check if both byte slices are of the same length
+// 	if len(bytes1) != len(bytes2) {
+// 		return 0, fmt.Errorf("byte slices are of different lengths")
+// 	}
+
+// 	// XOR the byte slices
+// 	xorResult := make([]byte, len(bytes1))
+// 	for i := range bytes1 {
+// 		xorResult[i] = bytes1[i] ^ bytes2[i]
+// 	}
+
+// 	// Count the number of differing bits
+// 	distance := 0
+// 	for _, b := range xorResult {
+// 		distance += CountBits(b)
+// 	}
+
+// 	return distance, nil
+// }
+
+func XOR(id1, id2 string) (*big.Int, error) {
+	bytes1, err := hex.DecodeString(id1)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex string for id1: %w", err)
 	}
-	return result
+	bytes2, err := hex.DecodeString(id2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex string for id2: %w", err)
+	}
+	if len(bytes1) != len(bytes2) {
+		return nil, fmt.Errorf("byte slices are of different lengths")
+	}
+
+	xorResult := new(big.Int).Xor(new(big.Int).SetBytes(bytes1), new(big.Int).SetBytes(bytes2))
+
+	return xorResult, nil
 }
+
+// CountBits counts the number of set bits (1s) in a byte
+// func CountBits(b byte) int {
+// 	count := 0
+// 	for b > 0 {
+// 		count += int(b & 1)
+// 		b >>= 1
+// 	}
+// 	return count
+// }
 
 func SortNodes(nodes []*KNode, targetID string) {
 	sort.Slice(nodes, func(i, j int) bool {
-		distanceI := XOR(nodes[i].ID, targetID)
-		distanceJ := XOR(nodes[j].ID, targetID)
+		distanceI, errI := XOR(nodes[i].ID, targetID)
+		distanceJ, errJ := XOR(nodes[j].ID, targetID)
+		if errI != nil || errJ != nil {
+			// Handle the error appropriately; for now, assume that nodes with error in distance calculation come last.
+			return errI != nil && errJ == nil
+		}
 		return distanceI.Cmp(distanceJ) < 0
 	})
 }
