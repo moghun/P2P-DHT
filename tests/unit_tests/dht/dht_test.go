@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"log"
+	"math/big"
 	"strings"
 	"testing"
 	"time"
@@ -81,39 +82,16 @@ func TestSendStoreMessage(t *testing.T) {
 	// Set up the sender node and its network
 	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
-	senderDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.2", senderPort)
+	senderDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
 	senderStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
 	senderNode := &node.Node{
-		IP:      "127.0.0.2",
+		IP:      "127.0.0.1",
 		Port:    senderPort,
 		Storage: senderStore,
 		DHT:     senderDht,
 	}
 
-	network_sender := message.NewNetwork(receiverNode.IP, receiverNode.ID, receiverNode.Port)
-	log.Print("Receiver port:", receiverPort)
-
-	// Start the receiver node's network listening for messages
-	go func() {
-		err := network_sender.StartListening()
-		assert.NoError(t, err)
-		log.Print("Receiver is listening")
-	}()
 	time.Sleep(2 * time.Second)
-
-	network_receiver := message.NewNetwork(senderNode.IP, senderNode.ID, senderNode.Port)
-	log.Print("Sender port:", senderPort)
-
-	go func() {
-		err := network_receiver.StartListening()
-		assert.NoError(t, err)
-		log.Print("Sender is listening")
-	}()
-
-	time.Sleep(2 * time.Second)
-
-	senderDht.Network = network_receiver
-	receiverDht.Network = network_sender
 
 	go func() {
 		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)

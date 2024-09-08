@@ -149,6 +149,7 @@ func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 	done := make(chan bool)
 	go func() {
+		log.Print("Storing key:", string(storeMsg.Key[:]))
 		if err := node.DHT.StoreToStorage(string(storeMsg.Key[:]), string(storeMsg.Value), int(storeMsg.TTL)); err != nil {
 			log.Printf("Error processing STORE in DHT: %v", err)
 		}
@@ -156,6 +157,7 @@ func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	}()
 	<-done
 
+	log.Print("Storing success!")
 	successMsg, _ := message.NewDHTSuccessMessage(storeMsg.Key, storeMsg.Value).Serialize()
 	return successMsg
 }
