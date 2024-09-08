@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"log"
-	"math/big"
 	"strings"
 	"testing"
 	"time"
