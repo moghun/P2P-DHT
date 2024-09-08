@@ -77,15 +77,6 @@ func TestSendStoreMessage(t *testing.T) {
 		Storage: receiverStore,
 		DHT:     receiverDht,
 	}
-	network_sender := message.NewNetwork(receiverNode.IP, receiverNode.ID, receiverNode.Port)
-	log.Print("Receiver port:", receiverPort)
-
-	// Start the receiver node's network listening for messages
-	go func() {
-		err := network_sender.StartListening()
-		assert.NoError(t, err)
-		log.Print("Receiver is listening")
-	}()
 
 	// Set up the sender node and its network
 	senderPort, err := tests.GetFreePort()
@@ -99,8 +90,27 @@ func TestSendStoreMessage(t *testing.T) {
 		DHT:     senderDht,
 	}
 
-	network_receiver := message.NewNetwork(senderNode.IP, senderNode.ID, senderPort)
+	network_sender := message.NewNetwork(receiverNode.IP, receiverNode.ID, receiverNode.Port)
+	log.Print("Receiver port:", receiverPort)
+
+	// Start the receiver node's network listening for messages
+	go func() {
+		err := network_sender.StartListening()
+		assert.NoError(t, err)
+		log.Print("Receiver is listening")
+	}()
+	time.Sleep(2 * time.Second)
+
+	network_receiver := message.NewNetwork(senderNode.IP, senderNode.ID, senderNode.Port)
 	log.Print("Sender port:", senderPort)
+
+	go func() {
+		err := network_receiver.StartListening()
+		assert.NoError(t, err)
+		log.Print("Sender is listening")
+	}()
+
+	time.Sleep(2 * time.Second)
 
 	senderDht.Network = network_receiver
 	receiverDht.Network = network_sender
