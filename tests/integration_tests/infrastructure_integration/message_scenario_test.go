@@ -14,18 +14,6 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
-func setupTLSConnection(t *testing.T, address string) *tls.Conn {
-	// Set up the TLS config for the client
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true, // Skip certificate verification for testing purposes
-	}
-
-	// Establish a TLS connection to the server
-	conn, err := tls.Dial("tcp", address, tlsConfig)
-	assert.NoError(t, err)
-	return conn
-}
-
 func TestPingPongIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
@@ -263,4 +251,17 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	failureMsg, ok := response.(*message.DHTFailureMessage)
 	assert.True(t, ok)
 	assert.Equal(t, key, failureMsg.Key)
+}
+
+
+func setupTLSConnection(t *testing.T, address string) *tls.Conn {
+	// Set up the TLS config for the client
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	// Establish a TLS connection to the server
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	assert.NoError(t, err)
+	return conn
 }
