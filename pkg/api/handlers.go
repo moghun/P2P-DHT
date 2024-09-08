@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"log"
 	"strings"
 
@@ -13,16 +14,30 @@ func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	putMsg := msg.(*message.DHTPutMessage)
 	node := nodeInstance.(*node.Node)
 
+	var err error
+
 	done := make(chan bool)
 	// Asynchronously send PUT request to DHT
 	go func() {
-		if err := node.DHT.PUT(string(putMsg.Key[:]), string(putMsg.Value), int(putMsg.TTL)); err != nil {
+		encodedKey := message.Byte32ToHexEncode(putMsg.Key)
+		if len(putMsg.Key) != 32 || len(encodedKey) != 40 {
+			err = errors.New("invalid key length")
+			done <- true
+			return
+		}
+		if err := node.DHT.PUT(encodedKey, string(putMsg.Value), int(putMsg.TTL)); err != nil {
 			log.Printf("Error processing PUT in DHT: %v", err)
 		}
 		done <- true
 	}()
 
 	<-done // Wait for the asynchronous operation to complete
+
+	if err != nil {
+		log.Printf("Error processing PUT in DHT: %v", err)
+		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
+		return failureMsg
+	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(putMsg.Key, putMsg.Value).Serialize()
 	return successMsg
@@ -39,12 +54,22 @@ func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	// Asynchronously send GET request to DHT
 	done := make(chan bool)
 	go func() {
-		value, nodes, err = node.DHT.GET(string(getMsg.Key[:]))
+		encodedKey := message.Byte32ToHexEncode(getMsg.Key)
+		if len(getMsg.Key) != 32 || len(encodedKey) != 40 {
+			err = errors.New("invalid key length")
+			done <- true
+			return
+		}
+
+		value, nodes, err = node.DHT.GET(encodedKey)
 		done <- true
 	}()
 	<-done
 
-	if err != nil || value == "" || nodes == nil {
+	if err != nil {
+		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
+		return failureMsg
+	} else if value == "" && nodes == nil {
 		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
 		return failureMsg
 	}
@@ -54,6 +79,7 @@ func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 		Nodes: nodes,
 	}
 
+	log.Print("Value found, SUCCESS:", value)
 	successMsg, _ := message.NewDHTSuccessMessage(getMsg.Key, successResponse.Serialize()).Serialize()
 	return successMsg
 }
@@ -73,7 +99,13 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 
 	done := make(chan bool)
 	go func() {
-		nodes, err = nodeInstance.FindNode(string(findNodeMsg.Key[:]))
+		encodedKey := message.Byte32ToHexEncode(findNodeMsg.Key)
+		if len(findNodeMsg.Key) != 32 || len(encodedKey) != 40 {
+			err = errors.New("invalid key length")
+			done <- true
+			return
+		}
+		nodes, err = nodeInstance.FindNode(encodedKey)
 
 		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
@@ -96,9 +128,6 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 		successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, successResponse.Serialize()).Serialize()
 		return successMsg
 	}
-
-	//successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
-	//return successMsg
 }
 
 func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byte {
@@ -112,7 +141,13 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	// Asynchronously process FIND_VALUE request
 	done := make(chan bool)
 	go func() {
-		value, nodes, err = nodeInstance.FindValue(string(findValueMsg.Key[:]))
+		encodedKey := message.Byte32ToHexEncode(findValueMsg.Key)
+		if len(findValueMsg.Key) != 32 || len(encodedKey) != 40 {
+			err = errors.New("invalid key length")
+			done <- true
+			return
+		}
+		value, nodes, err = nodeInstance.FindValue(encodedKey)
 
 		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
@@ -138,25 +173,36 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 			return failureMsg
 		}
 	}
-
-	//successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
-	//return successMsg
 }
 
 func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	storeMsg := msg.(*message.DHTStoreMessage)
 	node := nodeInstance.(*node.Node)
 
+	var err error
+
 	done := make(chan bool)
 	go func() {
-		log.Print("Storing key:", string(storeMsg.Key[:]))
 		encodedKey := message.Byte32ToHexEncode(storeMsg.Key)
-		if err := node.DHT.StoreToStorage(encodedKey, string(storeMsg.Value), int(storeMsg.TTL)); err != nil {
+		if len(storeMsg.Key) != 32 || len(encodedKey) != 40 {
+			err = errors.New("invalid key length")
+			done <- true
+			return
+		}
+
+		log.Print("Storing key:", string(storeMsg.Key[:]))
+		if err = node.DHT.StoreToStorage(encodedKey, string(storeMsg.Value), int(storeMsg.TTL)); err != nil {
 			log.Printf("Error processing STORE in DHT: %v", err)
 		}
 		done <- true
 	}()
 	<-done
+
+	if err != nil {
+		log.Printf("Error processing STORE in DHT: %v", err)
+		failureMsg, _ := message.NewDHTFailureMessage(storeMsg.Key).Serialize()
+		return failureMsg
+	}
 
 	log.Print("Storing success!")
 	successMsg, _ := message.NewDHTSuccessMessage(storeMsg.Key, storeMsg.Value).Serialize()

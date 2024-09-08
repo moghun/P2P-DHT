@@ -33,7 +33,11 @@ func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port 
 // HashKey hashes the given key and returns the hash as a hex string.
 func HashKey(key string) string {
 	hash := sha256.Sum256([]byte(key))
-	return hex.EncodeToString(hash[:20]) // Use the first 160 bits (20 bytes) of the hash
+	hexEncodedHash := hex.EncodeToString(hash[:20])
+	// log.Print("Hashed key length: ", len(hexEncodedHash))
+	// decodedHash, _ := message.HexStringToByte32(hexEncodedHash)
+	// log.Print("Decoded hash length: ", len(decodedHash))
+	return hexEncodedHash // Use the first 160 bits (20 bytes) of the hash
 }
 
 // IsHashedKey checks if the provided key is already a hashed key in hex string format.
@@ -62,6 +66,14 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 
 	failedNodes := make(map[string]*KNode)
 
+	if len(nodesToStore) == 0 {
+		log.Print("No nodes found to store the data, storing on this node")
+		err = d.StoreToStorage(key, value, ttl)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 	for _, node := range nodesToStore {
 		response, err := d.SendStoreMessage(key, value, *node)
 
@@ -176,6 +188,7 @@ func (d *DHT) GET(key string) (string, []*KNode, error) {
 
 func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 	value, err := d.Storage.Get(targetKeyID)
+	log.Print("Getting from storage: ", value)
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +239,7 @@ func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, errors.New("no nodes found")
+		return nil, nil
 	}
 
 	return nodes, nil

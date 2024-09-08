@@ -15,20 +15,28 @@ import (
 )
 
 func TestHandlePut(t *testing.T) {
-	key := [32]byte{}
-	value := []byte("value")
+	key := "id5"
+	hashedKey := dht.EnsureKeyHashed(key)
+	value := "value"
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+
+	nodeId := "id4"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht.RoutingTable.NodeID = hashedNodeId
+
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		DHT:     dht,
+		DHT:     newDht,
 	}
 
-	putMsg := message.NewDHTPutMessage(10000, 2, key, value)
+	byte32Key, err := message.HexStringToByte32(hashedKey)
+	assert.NoError(t, err)
+	putMsg := message.NewDHTPutMessage(10000, 2, byte32Key, []byte(value))
 	serializedMsg, err := putMsg.Serialize()
 	log.Print(serializedMsg)
 	assert.NoError(t, err)
@@ -38,31 +46,38 @@ func TestHandlePut(t *testing.T) {
 	assert.NotNil(t, response)
 
 	// Verify that the value was actually stored in the node's storage
-	storedValue, _, err := realNode.DHT.GET(string(key[:]))
+	storedValue, _, err := realNode.DHT.GET(hashedKey)
 	log.Print(storedValue)
 	assert.NoError(t, err)
 	assert.Equal(t, string(value), storedValue)
 }
 
 func TestHandleGet(t *testing.T) {
-	key := [32]byte{}
+	key := "id5"
+	hashedKey := dht.EnsureKeyHashed(key)
 	value := "value"
 
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	nodeId := "id4"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht.RoutingTable.NodeID = hashedNodeId
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		DHT:     dht,
+		DHT:     newDht,
 	}
 
 	// Pre-store the value in the node's storage
-	err := realNode.DHT.PUT(string(key[:]), value, 10000)
+	err := realNode.DHT.PUT(hashedKey, value, 10000)
 	assert.NoError(t, err)
 
-	getMsg := message.NewDHTGetMessage(key)
+	byte32Key, err := message.HexStringToByte32(hashedKey)
+	assert.NoError(t, err)
+
+	getMsg := message.NewDHTGetMessage(byte32Key)
 	serializedMsg, err := getMsg.Serialize()
 	log.Print(serializedMsg)
 	assert.NoError(t, err)
@@ -75,7 +90,11 @@ func TestHandleGet(t *testing.T) {
 	assert.NoError(t, err)
 	successMsg, ok := deserializedResponse.(*message.DHTSuccessMessage)
 	assert.True(t, ok)
-	assert.Equal(t, value, string(successMsg.Value))
+
+	deserializedSuccessMessage, err := dht.Deserialize(successMsg.Value)
+	assert.NoError(t, err)
+
+	assert.Equal(t, value, string(deserializedSuccessMessage.Value))
 }
 
 func TestHandlePing(t *testing.T) {
