@@ -69,7 +69,7 @@ func TestStartTLSListener(t *testing.T) {
 
 	// Simulate a client connecting to the TLS listener
 	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true, // Skip verification for the test
+		InsecureSkipVerify: true,
 	}
 	t.Log("Client: Dialing TLS connection...")
 

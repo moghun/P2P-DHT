@@ -63,8 +63,9 @@ func CreateTLSConfig(peerID string) (*tls.Config, error) {
 
     tlsConfig := &tls.Config{
         Certificates: []tls.Certificate{cert},
-        ClientAuth:   tls.NoClientCert, // Do not require client certificates
-        InsecureSkipVerify: true,       // Allow self-signed certificates (handle verification manually)
+        ClientAuth:   tls.NoClientCert,
+        InsecureSkipVerify: true,  // Self-signed certificates -> verify with VerifyPeerCertificate function
+        MinVersion:   tls.VersionTLS12,  // Ensure we are using at least TLS1.2
     }
 
     return tlsConfig, nil
@@ -77,28 +78,32 @@ func StartTLSListener(peerID string, address string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to create TLS config: %v", err)
 	}
 
+	log.Printf("Starting TLS listener on %s for peer %s...\n", address, peerID)
 	listener, err := tls.Listen("tcp", address, tlsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start TLS listener: %v", err)
 	}
-
 	log.Printf("TLS listener started on %s\n", address)
+
 	return listener, nil
 }
-
 // DialTLS connects to a peer using TLS for secure communication.
 func DialTLS(peerID string, address string) (net.Conn, error) {
-	tlsConfig, err := CreateTLSConfig(peerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TLS config: %v", err)
-	}
+    log.Printf("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
 
-	conn, err := tls.Dial("tcp", address, tlsConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
-	}
+    tlsConfig, err := CreateTLSConfig(peerID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to create TLS config: %v", err)
+    }
 
-	return conn, nil
+    conn, err := tls.Dial("tcp", address, tlsConfig)
+    if err != nil {
+        log.Printf("DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
+        return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
+    }
+
+    log.Printf("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
+    return conn, nil
 }
 
 // VerifyPeerCertificate is a custom certificate verification function to validate peer certificates in a decentralized manner.
