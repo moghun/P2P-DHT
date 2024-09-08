@@ -123,14 +123,15 @@ func TestDHTFailureMessage(t *testing.T) {
 
 func TestDHTStoreMessage(t *testing.T) {
 
-	key := [32]byte{}
-	value := []byte("storevalue")
-	msg := message.NewDHTStoreMessage(10000, key, value)
+	key := "testkey"
+	value := "testvalue"
+	msg := message.NewDHTStoreMessage(10000, 2, message.StringToByte32(key), []byte(value))
 
 	serialized, err := msg.Serialize()
 	assert.NoError(t, err)
 
-	deserializedMsg, err := msg.Deserialize(serialized)
+	deserializedMsg, err := message.DeserializeMessage(serialized)
+	//deserializedMsg, err := msg.Deserialize(serialized)
 	assert.NoError(t, err)
 	assert.IsType(t, &message.DHTStoreMessage{}, deserializedMsg)
 
