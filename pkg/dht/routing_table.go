@@ -1,10 +1,12 @@
 package dht
 
 import (
-	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"sort"
+	"strings"
 )
 
 const (
@@ -34,7 +36,13 @@ func NewRoutingTable(nodeID string) *RoutingTable {
 
 // AddNode adds a node to the appropriate KBucket.
 func (rt *RoutingTable) AddNode(targetID *KNode) {
-	bucketIndex, _ := BucketIndex(rt.NodeID, targetID.ID)
+	log.Print("Adding node to routing table: ", targetID.ID)
+	bucketIndex, _ := XOR(rt.NodeID, targetID.ID)
+	if bucketIndex == 0 {
+		log.Print("Bucket Index is 0")
+		return
+	}
+	log.Printf("Bucket Index: %d", bucketIndex)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.AddNode(targetID)
@@ -42,7 +50,7 @@ func (rt *RoutingTable) AddNode(targetID *KNode) {
 
 // RemoveNode removes a node from the routing table.
 func (rt *RoutingTable) RemoveNode(targetID string) {
-	bucketIndex, _ := BucketIndex(rt.NodeID, targetID)
+	bucketIndex, _ := XOR(rt.NodeID, targetID)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.RemoveNode(targetID)
@@ -50,10 +58,11 @@ func (rt *RoutingTable) RemoveNode(targetID string) {
 
 // GetClosestNodes returns the closest k nodes to the given ID. //Basically FindNode RPC
 func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
-	bucketIndex, err := BucketIndex(rt.NodeID, targetID)
+	bucketIndex, err := XOR(rt.NodeID, targetID)
 	if err != nil {
 		return nil, err
 	}
+	log.Print("Bucket Index for Closest Nodes: ", bucketIndex)
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()
@@ -61,6 +70,7 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 	if len(nodes) <= K {
 		// If the bucket has less than k nodes, include nodes from other buckets
 		//TODO would we ever need to check more than Alpha*2 buckets?
+		log.Print("Bucket has less than K nodes, no nodes: ", len(nodes))
 		for i := 1; i <= Alpha; i++ {
 			if bucketIndex-i >= 0 {
 				nodes = append(nodes, rt.Buckets[bucketIndex-i].GetNodes()...)
@@ -78,100 +88,109 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 	}
 
 	SortNodes(nodes, targetID)
+	log.Print("Nodes Sorted: ")
+	for i, node := range nodes {
+		log.Print("Node ", i, ": ", node.ID)
+	}
 
-	return nodes[:K], nil
+	if len(nodes) > K {
+		return nodes[:K], nil
+	} else {
+		return nodes, nil
+	}
 }
 
-// Function to find the bucket index
-func BucketIndex(originID, targetID string) (int, error) {
-	xorResult, err := XOR(originID, targetID)
-	if err != nil {
-		return 0, err
+// XORDistance computes the XOR between two 160-bit hashed IDs and returns the XOR result.
+// It returns an error if the IDs are not of equal length or contain invalid hex characters.
+func XORDistance(id1, id2 string) (*big.Int, error) {
+	// Ensure both IDs have the same length
+	if len(id1) != len(id2) {
+		return nil, errors.New("IDs must have the same length")
 	}
 
-	// Find the index of the most significant bit (MSB) set to 1
-	bucketIndex := xorResult.BitLen() - 1
-
-	return bucketIndex, nil
-}
-
-// calculates the XOR distance between two NodeIDs
-// func XOR(a, b string) *big.Int {
-// 	result := new(big.Int)
-// 	for i := 0; i < len(a); i++ {
-// 		result = result.Or(result, big.NewInt(int64(a[i]^b[i])).Lsh(big.NewInt(0), uint(8*(len(a)-i-1))))
-// 	}
-// 	return result
-// }
-
-// XORDistance calculates the XOR distance between two hashed IDs.
-// func XOR(id1, id2 string) (int, error) {
-// 	// Convert hex strings to byte slices
-// 	bytes1, err := hex.DecodeString(id1)
-// 	if err != nil {
-// 		return 0, fmt.Errorf("invalid hex string for id1: %w", err)
-// 	}
-// 	bytes2, err := hex.DecodeString(id2)
-// 	if err != nil {
-// 		return 0, fmt.Errorf("invalid hex string for id2: %w", err)
-// 	}
-
-// 	// Check if both byte slices are of the same length
-// 	if len(bytes1) != len(bytes2) {
-// 		return 0, fmt.Errorf("byte slices are of different lengths")
-// 	}
-
-// 	// XOR the byte slices
-// 	xorResult := make([]byte, len(bytes1))
-// 	for i := range bytes1 {
-// 		xorResult[i] = bytes1[i] ^ bytes2[i]
-// 	}
-
-// 	// Count the number of differing bits
-// 	distance := 0
-// 	for _, b := range xorResult {
-// 		distance += CountBits(b)
-// 	}
-
-// 	return distance, nil
-// }
-
-func XOR(id1, id2 string) (*big.Int, error) {
-	bytes1, err := hex.DecodeString(id1)
-	if err != nil {
-		return nil, fmt.Errorf("invalid hex string for id1: %w", err)
-	}
-	bytes2, err := hex.DecodeString(id2)
-	if err != nil {
-		return nil, fmt.Errorf("invalid hex string for id2: %w", err)
-	}
-	if len(bytes1) != len(bytes2) {
-		return nil, fmt.Errorf("byte slices are of different lengths")
+	// Ensure both IDs are valid hexadecimal strings
+	if !isHex(id1) || !isHex(id2) {
+		return nil, errors.New("invalid hexadecimal input")
 	}
 
-	xorResult := new(big.Int).Xor(new(big.Int).SetBytes(bytes1), new(big.Int).SetBytes(bytes2))
+	// Convert the hexadecimal string IDs to big.Int
+	intID1 := new(big.Int)
+	intID2 := new(big.Int)
+	_, success1 := intID1.SetString(id1, 16)
+	_, success2 := intID2.SetString(id2, 16)
+
+	if !success1 || !success2 {
+		return nil, errors.New("failed to parse hexadecimal strings to big integers")
+	}
+
+	// Perform bitwise XOR: id1 ^ id2
+	xorResult := new(big.Int).Xor(intID1, intID2)
 
 	return xorResult, nil
 }
 
-// CountBits counts the number of set bits (1s) in a byte
-// func CountBits(b byte) int {
-// 	count := 0
-// 	for b > 0 {
-// 		count += int(b & 1)
-// 		b >>= 1
-// 	}
-// 	return count
-// }
+// CountDifferingBits counts the number of differing bits (1s in the XOR result)
+func CountDifferingBits(xorResult *big.Int) int {
+	count := 0
+	for i := 0; i < xorResult.BitLen(); i++ {
+		if xorResult.Bit(i) == 1 {
+			count++
+		}
+	}
+	return count
+}
+
+// isHex checks if a string is a valid hexadecimal string
+func isHex(s string) bool {
+	// Check if the string contains only hexadecimal characters (0-9, a-f, A-F)
+	for _, c := range s {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", c) {
+			return false
+		}
+	}
+	return true
+}
+
+// IsCloser returns true if target1 is closer to the referenceID than target2, based on XOR distance.
+// Returns an error if any of the IDs are invalid or not the same length.
+func IsCloser(referenceID, target1, target2 string) (bool, error) {
+	// Calculate the XOR distance between referenceID and target1
+	xorDistance1, err := XORDistance(referenceID, target1)
+	if err != nil {
+		return false, err
+	}
+
+	// Calculate the XOR distance between referenceID and target2
+	xorDistance2, err := XORDistance(referenceID, target2)
+	if err != nil {
+		return false, err
+	}
+
+	// Compare the two XOR distances
+	compareResult := xorDistance1.Cmp(xorDistance2)
+
+	// Return true if target1 is closer (i.e., XOR distance is smaller)
+	return compareResult == -1, nil
+}
+
+// XOR calculates the XOR distance between two hashed IDs.
+func XOR(id1, id2 string) (int, error) {
+	xorDistance, err := XORDistance(id1, id2)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return -1, err
+	}
+
+	numDifferingBits := CountDifferingBits(xorDistance)
+
+	return numDifferingBits, nil
+}
 
 func SortNodes(nodes []*KNode, targetID string) {
+	//sort nodes using iscloser
 	sort.Slice(nodes, func(i, j int) bool {
-		distanceI, errI := XOR(nodes[i].ID, targetID)
-		distanceJ, errJ := XOR(nodes[j].ID, targetID)
-		if errI != nil || errJ != nil {
-			// Handle the error appropriately; for now, assume that nodes with error in distance calculation come last.
-			return errI != nil && errJ == nil
-		}
-		return distanceI.Cmp(distanceJ) < 0
+		closer, _ := IsCloser(targetID, nodes[i].ID, nodes[j].ID)
+		return closer
 	})
+
 }

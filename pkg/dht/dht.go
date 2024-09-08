@@ -215,6 +215,7 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 
 func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 	nodes, err := d.RoutingTable.GetClosestNodes(targetID)
+	log.Print("FindNode nodes count: ", len(nodes))
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +301,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 
 		xorResult, _ := XOR(shortlist[0].ID, targetID)
 		//break if the closest node is not closer than the last closest node
-		if xorResult.Cmp(closestNodeDistance) >= 0 {
+		if xorResult >= closestNodeDistance {
 			break
 		}
 	}
@@ -387,7 +388,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 
 		xorResult, _ := XOR(shortlist[0].ID, targetID)
 		//break if the closest node is not closer than the last closest node
-		if xorResult.Cmp(closestNodeDistance) >= 0 {
+		if xorResult >= closestNodeDistance {
 			break
 		}
 	}
