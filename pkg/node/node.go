@@ -4,14 +4,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type NodeInterface interface {
@@ -57,10 +58,20 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 		Config:  config, // Set the configuration
 	}
 
-	node.Network = message.NewNetwork(ip, id ,port)
+	node.Network = message.NewNetwork(ip, id, port)
 
+	// Start the DHT network join process
 	go node.DHT.Join()
+
 	return node
+}
+
+func (n *Node) Shutdown() {
+	n.DHT.Stop()
+	n.Storage.StopCleanup()
+	n.IsDown = true
+	
+	log.Printf("Node %s shut down successfully.", n.ID)
 }
 
 // Put stores a key-value pair in the node's storage with a specified TTL.

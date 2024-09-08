@@ -26,7 +26,7 @@ func main() {
 	util.SetupLogging("node.log")
 
 	// Create a new node instance
-	nodeInstance := node.NewNode(config, time.Duration(config.TTL) * time.Second)
+	nodeInstance := node.NewNode(config, time.Duration(config.TTL)*time.Second)
 
 	// Bootstrap the node to join the network
 	err := nodeInstance.Bootstrap()
@@ -54,7 +54,13 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Block until a signal is received
 	sig := <-sigChan
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
+	// Gracefully shut down the node
+	nodeInstance.Shutdown()
+
+	// Confirm shutdown
+	fmt.Println("Node shut down successfully.")
 }
