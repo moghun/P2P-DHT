@@ -172,7 +172,7 @@ func TestHandleStore(t *testing.T) {
 		DHT:     dht,
 	}
 
-	storeMsg := message.NewDHTStoreMessage(10000, key, value)
+	storeMsg := message.NewDHTStoreMessage(10000, 2, key, value)
 	serializedMsg, err := storeMsg.Serialize()
 	log.Print(serializedMsg)
 	assert.NoError(t, err)

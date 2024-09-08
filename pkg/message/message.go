@@ -84,7 +84,7 @@ func CreateMessage(msgType int, data []byte) (Message, error) {
 	case DHT_FIND_VALUE:
 		return NewDHTFindValueMessage([32]byte{}), nil // Placeholder for initialization
 	case DHT_STORE:
-		return NewDHTStoreMessage(0, [32]byte{}, data), nil
+		return NewDHTStoreMessage(0, 0, [32]byte{}, data), nil
 	case DHT_BOOTSTRAP:
 		return NewDHTBootstrapMessage(string(data)), nil
 	case DHT_BOOTSTRAP_REPLY:
@@ -102,7 +102,6 @@ func DeserializeMessage(data []byte) (Message, error) {
 
 	// Extract the message type from the header
 	msgType := int(binary.BigEndian.Uint16(data[2:4]))
-
 	// Create the appropriate message based on the type
 	msg, err := CreateMessage(msgType, nil)
 	if err != nil {
