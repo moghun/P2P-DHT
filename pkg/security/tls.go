@@ -28,11 +28,10 @@ func GenerateSelfSignedCertificate(peerID string) (tls.Certificate, error) {
 			Organization: []string{"P2P Network"},
 			CommonName:   peerID,
 		},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(365 * 24 * time.Hour),
-		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
-
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 	}
@@ -68,10 +67,16 @@ func CreateTLSConfig(peerID string) (*tls.Config, error) {
 			return fmt.Errorf("failed to parse peer certificate: %v", err)
 		}
 
-		peerIDHash := sha256.Sum256([]byte(cert.Subject.CommonName))
+		// Extract the peer's public key and generate a hash
+		peerPublicKeyBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer public key: %v", err)
+		}
 
-		expectedHash := sha256.Sum256([]byte(cert.Subject.CommonName))
-		if peerIDHash != expectedHash {
+		peerPublicKeyHash := sha256.Sum256(peerPublicKeyBytes)
+
+		expectedHash := sha256.Sum256(peerPublicKeyBytes)
+		if peerPublicKeyHash != expectedHash {
 			return fmt.Errorf("peer certificate verification failed for peer: %s", cert.Subject.CommonName)
 		}
 
@@ -82,7 +87,7 @@ func CreateTLSConfig(peerID string) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		Certificates:          []tls.Certificate{cert},
 		ClientAuth:            tls.NoClientCert,
-		InsecureSkipVerify:    true, // Disable automatic certificate verification, using custom VerifyPeerCertificate
+		InsecureSkipVerify:    true, // For self-signed certificates, use custom verification
 		VerifyPeerCertificate: verifyPeerCert,
 		MinVersion:            tls.VersionTLS12,
 	}
