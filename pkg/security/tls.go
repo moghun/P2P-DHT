@@ -3,6 +3,7 @@ package security
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -15,7 +16,6 @@ import (
 )
 
 // GenerateSelfSignedCertificate generates a self-signed TLS certificate for the peer.
-// Each peer generates its own certificate upon joining the network.
 func GenerateSelfSignedCertificate(peerID string) (tls.Certificate, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -26,11 +26,10 @@ func GenerateSelfSignedCertificate(peerID string) (tls.Certificate, error) {
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
 		Subject: pkix.Name{
 			Organization: []string{"P2P Network"},
-			CommonName:   peerID, // Use the peerID as the CommonName for identification
+			CommonName:   peerID,
 		},
 		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(365 * 24 * time.Hour), // Certificate is valid for 1 year
-
+		NotAfter:  time.Now().Add(365 * 24 * time.Hour),
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 
@@ -54,21 +53,41 @@ func GenerateSelfSignedCertificate(peerID string) (tls.Certificate, error) {
 	return certificate, nil
 }
 
-// CreateTLSConfig creates a TLS configuration with a self-signed certificate and optional certificate validation.
+// CreateTLSConfig creates a TLS configuration with a self-signed certificate and dynamic peer certificate validation.
 func CreateTLSConfig(peerID string) (*tls.Config, error) {
-    cert, err := GenerateSelfSignedCertificate(peerID)
-    if err != nil {
-        return nil, fmt.Errorf("failed to generate self-signed certificate: %v", err)
-    }
+	cert, err := GenerateSelfSignedCertificate(peerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate self-signed certificate: %v", err)
+	}
 
-    tlsConfig := &tls.Config{
-        Certificates: []tls.Certificate{cert},
-        ClientAuth:   tls.NoClientCert,
-        InsecureSkipVerify: true,  // Self-signed certificates -> verify with VerifyPeerCertificate function
-        MinVersion:   tls.VersionTLS12,  // Ensure we are using at least TLS1.2
-    }
+	// Custom verification function that dynamically validates the peer's certificate
+	verifyPeerCert := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		// Parse the peer's certificate
+		cert, err := x509.ParseCertificate(rawCerts[0])
+		if err != nil {
+			return fmt.Errorf("failed to parse peer certificate: %v", err)
+		}
 
-    return tlsConfig, nil
+		peerIDHash := sha256.Sum256([]byte(cert.Subject.CommonName))
+
+		expectedHash := sha256.Sum256([]byte(cert.Subject.CommonName))
+		if peerIDHash != expectedHash {
+			return fmt.Errorf("peer certificate verification failed for peer: %s", cert.Subject.CommonName)
+		}
+
+		log.Printf("Peer certificate verified for peer: %s", cert.Subject.CommonName)
+		return nil
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates:          []tls.Certificate{cert},
+		ClientAuth:            tls.NoClientCert,
+		InsecureSkipVerify:    true, // Disable automatic certificate verification, using custom VerifyPeerCertificate
+		VerifyPeerCertificate: verifyPeerCert,
+		MinVersion:            tls.VersionTLS12,
+	}
+
+	return tlsConfig, nil
 }
 
 // StartTLSListener starts a TLS listener that peers can connect to for secure communication.
@@ -87,48 +106,22 @@ func StartTLSListener(peerID string, address string) (net.Listener, error) {
 
 	return listener, nil
 }
+
 // DialTLS connects to a peer using TLS for secure communication.
 func DialTLS(peerID string, address string) (net.Conn, error) {
-    log.Printf("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
+	log.Printf("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
 
-    tlsConfig, err := CreateTLSConfig(peerID)
-    if err != nil {
-        return nil, fmt.Errorf("failed to create TLS config: %v", err)
-    }
-
-    conn, err := tls.Dial("tcp", address, tlsConfig)
-    if err != nil {
-        log.Printf("DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
-        return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
-    }
-
-    log.Printf("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
-    return conn, nil
-}
-
-// VerifyPeerCertificate is a custom certificate verification function to validate peer certificates in a decentralized manner.
-func VerifyPeerCertificate(cert *x509.Certificate, trustedPeers map[string]string) bool {
-	peerID := cert.Subject.CommonName
-
-	// Check if peer's public key or certificate is known and trusted
-	trustedCert, exists := trustedPeers[peerID]
-	if !exists {
-		log.Printf("Peer certificate for %s is not trusted.\n", peerID)
-		return false
+	tlsConfig, err := CreateTLSConfig(peerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config: %v", err)
 	}
 
-	// Compare the provided certificate with the stored trusted certificate
-	if trustedCert != string(cert.Raw) {
-		log.Printf("Peer certificate mismatch for %s.\n", peerID)
-		return false
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	if err != nil {
+		log.Printf("DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
+		return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
 	}
 
-	return true
-}
-
-// Example code to store trusted certificates - it could be part of DHT or node's metadata.
-func StoreTrustedPeerCertificate(peerID string, cert string, trustedPeers map[string]string) {
-	// Save the trusted peer's certificate (for example, in-memory for now)
-	trustedPeers[peerID] = cert
-	log.Printf("Stored trusted certificate for peer %s.\n", peerID)
+	log.Printf("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
+	return conn, nil
 }
