@@ -55,5 +55,9 @@ func main() {
 	sig := <-sigChan
 	fmt.Printf("Received signal %s, shutting down...\n", sig)
 
-	// Graceful shutdown logic can be added here if needed
+	// Gracefully shut down the BootstrapNode
+	bootstrapNodeInstance.Shutdown()
+
+	// Confirm shutdown
+	fmt.Println("BootstrapNode shut down successfully.")
 }

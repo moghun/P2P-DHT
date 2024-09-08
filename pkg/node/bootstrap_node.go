@@ -50,3 +50,15 @@ func (bn *BootstrapNode) GetKnownPeers() map[string]string {
 	}
 	return peersCopy
 }
+
+func (bn *BootstrapNode) Shutdown() {
+	// Gracefully shut down the embedded Node
+	bn.Node.Shutdown()
+
+	// Any additional shutdown tasks for BootstrapNode can be added here
+	bn.mu.Lock()
+	bn.KnownPeers = make(map[string]string) // Clear known peers
+	bn.mu.Unlock()
+
+	fmt.Println("BootstrapNode shut down successfully.")
+}
