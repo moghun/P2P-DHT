@@ -12,10 +12,12 @@ import (
 )
 
 type Storage struct {
-	data map[string]*storageItem
-	mu   sync.Mutex
-	ttl  time.Duration
-	key  []byte // Encryption key
+	data         map[string]*storageItem
+	mu           sync.Mutex
+	ttl          time.Duration
+	key          []byte // Encryption key
+	cleanupTicker *time.Ticker // Holds the reference to the ticker
+	stopCleanup   chan bool // Channel to signal stopping the cleanup routine
 }
 
 type storageItem struct {
@@ -25,16 +27,17 @@ type storageItem struct {
 }
 
 func NewStorage(ttl time.Duration, key []byte) *Storage {
-    storage := &Storage{
-        data: make(map[string]*storageItem),
-        ttl:  ttl,
-        key:  key,
-    }
+	storage := &Storage{
+		data:        make(map[string]*storageItem),
+		ttl:         ttl,
+		key:         key,
+		stopCleanup: make(chan bool),
+	}
 
-    storage.StartCleanup(ttl)
-
-    return storage
+	storage.StartCleanup(ttl)
+	return storage
 }
+
 func (s *Storage) Put(key, value string, ttl int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -109,13 +112,18 @@ func (s *Storage) CleanupExpired() {
 }
 
 func (s *Storage) StartCleanup(interval time.Duration) {
-    ticker := time.NewTicker(interval)
-    go func() {
-        for {
-            <-ticker.C
-            s.CleanupExpired()
-        }
-    }()
+	s.cleanupTicker = time.NewTicker(interval)
+	go func() {
+		for {
+			select {
+			case <-s.cleanupTicker.C:
+				s.CleanupExpired()
+			case <-s.stopCleanup:
+				s.cleanupTicker.Stop() // Stop the ticker
+				return
+			}
+		}
+	}()
 }
 
 // GetAll returns all key-value pairs from the storage, decrypting the values before returning
@@ -134,6 +142,13 @@ func (s *Storage) GetAll() map[string]string {
 	}
 	return allData
 }
+
+// StopCleanup stops the cleanup ticker and terminates the cleanup routine.
+func (s *Storage) StopCleanup() {
+	s.stopCleanup <- true
+	log.Println("Storage cleanup routine stopped.")
+}
+
 
 /* FOR TEST PURPOSES*/
 // Getter for the Data field
