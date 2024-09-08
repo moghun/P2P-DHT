@@ -1,11 +1,9 @@
 package dht
 
 import (
-	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -42,6 +40,8 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	for _, node := range nodesToStore {
 		response, err := d.SendStoreMessage(key, value, *node)
 
+		log.Printf("Response: %v", response)
+
 		if err != nil {
 			log.Printf("Error sending message: %v", err)
 			return err
@@ -74,61 +74,41 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	return nil
 }
 
-func (d *DHT) SendStoreMessage2(key, value string, targetNode KNode) (message.Message, error) {
-	msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
+func (d *DHT) CreateStoreMessage(key, value string) ([]byte, error) {
+	msg := message.NewDHTStoreMessage(10000, 2, message.StringToByte32(key), []byte(value))
 	rpcMessage, serializationErr := msg.Serialize()
 
 	if serializationErr != nil { //TODO handle error
-		log.Printf("Error creating/serializing message: %v", serializationErr)
+		log.Printf("Error serializing message: %v", serializationErr)
 		return nil, serializationErr
 	}
 
-	//TODO wait for msgResponse
-	msgResponse, msgResponseErr := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
-	if msgResponseErr != nil { //TODO handle error
-		log.Printf("Error sending message: %v", msgResponseErr)
-		return nil, msgResponseErr
-	}
-
-	deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-	// Deserialize the response to check if it contains a value or nodes
-	if deserializationErr != nil {
-		log.Printf("Error deserializing response: %v", deserializationErr)
-		return nil, deserializationErr
-	}
-
-	return deserializedResponse, nil
+	return rpcMessage, nil
 }
 
 func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Message, error) {
-	// Create a store message
-	msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
-	rpcMessage, serializationErr := msg.Serialize()
+	rpcMessage, err := d.CreateStoreMessage(key, value)
 
-	if serializationErr != nil {
-		log.Printf("Error creating/serializing message: %v", serializationErr)
-		return nil, serializationErr
+	if err != nil {
+		log.Printf("Error creating/serializing message: %v", err)
+		return nil, err
 	}
 
-	// Create a context with timeout (e.g., 5 seconds)
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel() // Ensures resources are cleaned up once the context is done
-
-	// Create a channel to handle the message response
 	responseChan := make(chan []byte)
-	errChan := make(chan error)
+	errorChan := make(chan error)
 
-	// Send the message asynchronously
+	// Send message asynchronously
 	go func() {
-		msgResponse, msgResponseErr := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
-		if msgResponseErr != nil {
-			errChan <- msgResponseErr
+		log.Print("sending this from dht.sendStoreMessage: ", rpcMessage)
+		msgResponse, err := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
+		log.Print("dht.sendStoreMessage response: ", msgResponse)
+		if err != nil {
+			errorChan <- err
 			return
 		}
 		responseChan <- msgResponse
 	}()
 
-	// Wait for either a response, an error, or a timeout
 	select {
 	case msgResponse := <-responseChan:
 		// Deserialize the response
@@ -137,12 +117,11 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 			log.Printf("Error deserializing response: %v", deserializationErr)
 			return nil, deserializationErr
 		}
-		log.Printf("Received response for PUT XXXX: %v", deserializedResponse)
 		return deserializedResponse, nil
-	case err := <-errChan:
-		return nil, err
-	case <-ctx.Done(): // Timeout occurred
-		return nil, fmt.Errorf("timeout waiting for response from node %s", targetNode.ID)
+
+	case msgResponseErr := <-errorChan:
+		log.Printf("Error sending message: %v", msgResponseErr)
+		return nil, msgResponseErr
 	}
 }
 
@@ -180,6 +159,7 @@ func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 }
 
 func (d *DHT) StoreToStorage(key, value string, ttl int) error {
+	log.Print("Storing to storage")
 	return d.Storage.Put(key, value, ttl)
 }
 
@@ -386,56 +366,28 @@ func (d *DHT) IterativeStore(key, value string) error {
 	failedNodes := make(map[string]*KNode)
 	for _, node := range nodesToPublishData {
 
-		msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
-		rpcMessage, serializationErr := msg.Serialize()
+		response, err := d.SendStoreMessage(key, value, *node)
 
-		if serializationErr != nil { //TODO handle error
-			log.Printf("Error creating/serializing message: %v", serializationErr)
-			return serializationErr
+		if err != nil {
+			log.Printf("Error sending retry message: %v", err)
+			return err
 		}
 
-		//TODO wait for msgResponse
-		msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
-		if msgResponseErr != nil { //TODO handle error
-			log.Printf("Error sending message: %v", msgResponseErr)
-			return msgResponseErr
-		}
-
-		deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-		if deserializationErr != nil {
-			log.Printf("Error deserializing response: %v", deserializationErr)
-			return deserializationErr
-		}
-
-		if deserializedResponse.GetType() == message.DHT_FAILURE {
-			failedNodes[node.ID] = node
+		if response.GetType() == message.DHT_SUCCESS {
+			delete(failedNodes, node.ID)
 		}
 	}
 
 	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
 		for _, node := range failedNodes {
-			msg := message.NewDHTStoreMessage(0, message.StringToByte32(key), []byte(value))
-			rpcMessage, serializationErr := msg.Serialize()
+			response, err := d.SendStoreMessage(key, value, *node)
 
-			if serializationErr != nil { //TODO handle error
-				log.Printf("Error creating/serializing message: %v", serializationErr)
-				return serializationErr
+			if err != nil {
+				log.Printf("Error sending retry message: %v", err)
+				return err
 			}
 
-			//TODO wait for msgResponse
-			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
-			if msgResponseErr != nil { //TODO handle error
-				log.Printf("Error sending message: %v", msgResponseErr)
-				return msgResponseErr
-			}
-
-			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-			if deserializationErr != nil {
-				log.Printf("Error deserializing response: %v", deserializationErr)
-				return deserializationErr
-			}
-
-			if deserializedResponse.GetType() == message.DHT_SUCCESS {
+			if response.GetType() == message.DHT_SUCCESS {
 				delete(failedNodes, node.ID)
 			}
 		}
