@@ -7,22 +7,24 @@ import (
 
 type DHTStoreMessage struct {
 	BaseMessage
-	TTL      uint16
-	Reserved uint8
-	Key      [32]byte
-	Value    []byte
+	TTL         uint16
+	Reserved    uint8
+	Replication uint8
+	Key         [32]byte
+	Value       []byte
 }
 
-func NewDHTStoreMessage(ttl uint16, key [32]byte, value []byte) *DHTStoreMessage {
+func NewDHTStoreMessage(ttl uint16, rep uint8, key [32]byte, value []byte) *DHTStoreMessage {
 	size := uint16(40 + len(value))
 	return &DHTStoreMessage{
 		BaseMessage: BaseMessage{
 			Size: size,
 			Type: DHT_STORE,
 		},
-		TTL:   ttl,
-		Key:   key,
-		Value: value,
+		TTL:         ttl,
+		Replication: rep,
+		Key:         key,
+		Value:       value,
 	}
 }
 
@@ -32,6 +34,9 @@ func (m *DHTStoreMessage) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	if err := binary.Write(buf, binary.BigEndian, m.TTL); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(buf, binary.BigEndian, m.Replication); err != nil {
 		return nil, err
 	}
 	if err := binary.Write(buf, binary.BigEndian, m.Reserved); err != nil {
@@ -53,6 +58,9 @@ func (m *DHTStoreMessage) Deserialize(data []byte) (Message, error) {
 	reader := bytes.NewReader(data[4:]) // Skip header
 
 	if err := binary.Read(reader, binary.BigEndian, &m.TTL); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &m.Replication); err != nil {
 		return nil, err
 	}
 	if err := binary.Read(reader, binary.BigEndian, &m.Reserved); err != nil {
