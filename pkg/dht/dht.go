@@ -2,9 +2,11 @@ package dht
 
 import (
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"log"
+	"regexp"
 	"sync"
 	"time"
 
@@ -26,6 +28,28 @@ func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port 
 		Storage:      NewDHTStorage(ttl, encryptionKey),
 		Network:      message.NewNetwork(id, ip, port),
 	}
+}
+
+// HashKey hashes the given key and returns the hash as a hex string.
+func HashKey(key string) string {
+	hash := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(hash[:20]) // Use the first 160 bits (20 bytes) of the hash
+}
+
+// IsHashedKey checks if the provided key is already a hashed key in hex string format.
+func IsHashedKey(key string) bool {
+	// Hex string of 160-bit (20 bytes) hash should be 40 characters long
+	const hexPattern = "^[a-fA-F0-9]{40}$"
+	matched, _ := regexp.MatchString(hexPattern, key)
+	return matched
+}
+
+// EnsureKeyHashed returns the hashed key as a hex string if the provided key is not already hashed.
+func EnsureKeyHashed(key string) string {
+	if IsHashedKey(key) {
+		return key // Already hashed
+	}
+	return HashKey(key) // Hash the key
 }
 
 // PUT stores a value in the DHT.

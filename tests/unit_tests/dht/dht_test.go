@@ -165,3 +165,60 @@ func TestCreateStoreMessage(t *testing.T) {
 	// Compare both keys as strings
 	assert.Equal(t, key, trimmedKey)
 }
+
+func TestHashKey(t *testing.T) {
+	// Define test cases
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"exampleKey", "c8f61512ae6831f3419eda280b68cee2113f63c5"}, // Expected hash for "exampleKey"
+		{"anotherKey", "86f64b4f2882f39601f9c73fb3fab414fd0bbe71"}, // Expected hash for "anotherKey"
+	}
+
+	for _, test := range tests {
+		result := dht.HashKey(test.input)
+		log.Print("Result:", result)
+		if result != test.expected {
+			t.Errorf("HashKey(%q) = %q; want %q", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestIsHashedKey(t *testing.T) {
+	// Define test cases
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"b1a1f0e8b915efb0911e7fc92f941bfc23dfd7d8", true}, // Valid 160-bit hex string
+		{"de2054c8e5d885c63b545583fe065ab4aa8b7f16", true}, // Valid 160-bit hex string
+		{"notAHexString", false},                           // Not a hex string
+		{"b1a1f0e8b915efb0911e7fc92f941bfc23dfd7", false},  // Invalid length
+	}
+
+	for _, test := range tests {
+		result := dht.IsHashedKey(test.input)
+		if result != test.expected {
+			t.Errorf("IsHashedKey(%q) = %v; want %v", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestEnsureKeyHashed(t *testing.T) {
+	// Define test cases
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"exampleKey", "c8f61512ae6831f3419eda280b68cee2113f63c5"},                               // Hash of "exampleKey"
+		{"b1a1f0e8b915efb0911e7fc92f941bfc23dfd7d8", "b1a1f0e8b915efb0911e7fc92f941bfc23dfd7d8"}, // Already hashed
+	}
+
+	for _, test := range tests {
+		result := dht.EnsureKeyHashed(test.input)
+		if result != test.expected {
+			t.Errorf("EnsureKeyHashed(%q) = %q; want %q", test.input, result, test.expected)
+		}
+	}
+}
