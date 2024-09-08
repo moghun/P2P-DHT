@@ -159,9 +159,8 @@ func TestHandleFindValue(t *testing.T) {
 }
 
 func TestHandleStore(t *testing.T) {
-	key := [32]byte{}
+	key := "testkey"
 	value := []byte("value")
-
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
 	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
@@ -172,7 +171,7 @@ func TestHandleStore(t *testing.T) {
 		DHT:     dht,
 	}
 
-	storeMsg := message.NewDHTStoreMessage(10000, 2, key, value)
+	storeMsg := message.NewDHTStoreMessage(10000, 2, message.StringToByte32(key), value)
 	serializedMsg, err := storeMsg.Serialize()
 	log.Print(serializedMsg)
 	assert.NoError(t, err)
@@ -181,9 +180,12 @@ func TestHandleStore(t *testing.T) {
 	log.Print(response)
 	assert.NotNil(t, response)
 
+	desResponse, desErr := message.DeserializeMessage(response)
+	assert.NoError(t, desErr)
+	assert.Equal(t, message.DHT_SUCCESS, desResponse.GetType())
+
 	// Verify that the value was actually stored in the node's storage
-	storedValue, _, err := realNode.DHT.GET(string(key[:]))
-	log.Print(storedValue)
+	storedValue, _, err := realNode.DHT.GET(message.StringTo32ByteString(key))
 	assert.NoError(t, err)
 	assert.Equal(t, string(value), storedValue)
 }

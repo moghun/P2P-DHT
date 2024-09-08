@@ -115,11 +115,16 @@ func DeserializeMessage(data []byte) (Message, error) {
 // Convert string id to [32]byte
 func StringToByte32(id string) [32]byte {
 	var byteID [32]byte
-	copy(byteID[:], id)
+	copy(byteID[:], []byte(id))
 	return byteID
 }
 
 // Convert [32]byte to string
 func Byte32ToString(id [32]byte) string {
 	return string(id[:])
+}
+
+func StringTo32ByteString(id string) string {
+	byteId := StringToByte32(id)
+	return string(byteId[:])
 }
