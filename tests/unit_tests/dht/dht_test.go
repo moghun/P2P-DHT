@@ -525,3 +525,94 @@ func TestGet_NoValue(t *testing.T) {
 	assert.NotNil(t, closestNodes, "Get should return a list of closest nodes")
 	assert.NotEmpty(t, closestNodes, "Get should return a non-empty list of closest nodes")
 }
+
+func TestPut(t *testing.T) {
+	// Set up the receiver node and its network
+	receiverPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	receiverDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	receiverDht.RoutingTable.NodeID = hashedNodeId
+	receiverNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    receiverPort,
+		Storage: receiverStore,
+		DHT:     receiverDht,
+	}
+
+	// Set up the sender node and its network
+	senderPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	senderDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	nodeId2 := "id0"
+	hashedNodeId2 := dht.EnsureKeyHashed(nodeId2)
+	senderDht.RoutingTable.NodeID = hashedNodeId2
+
+	senderNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    senderPort,
+		Storage: senderStore,
+		DHT:     senderDht,
+	}
+
+	go func() {
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	go func() {
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	var hashList []string
+	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
+		"id21", "id22", "id23", "id24", "id25", "id26", "id27", "id28", "id29", "id31", "id32", "id33", "id34", "id35", "id36", "id37", "id38", "id39", "id40"}
+
+	for _, id := range idList {
+		hashList = append(hashList, dht.EnsureKeyHashed(id))
+	}
+
+	for i, hash := range hashList {
+		newKNode := &dht.KNode{
+			ID:   hash,
+			IP:   "127.0.0.1",
+			Port: receiverPort,
+		}
+		log.Print("Adding node to routing table: ", i)
+		receiverDht.RoutingTable.AddNode(newKNode)
+		senderDht.RoutingTable.AddNode(newKNode)
+	}
+
+	strKey := "id30"
+	strKey = dht.EnsureKeyHashed(strKey)
+
+	err = senderDht.PUT(strKey, "value", 3600)
+
+	log.Print("Waiting for 2 seconds for PUT to complete")
+	time.Sleep(2 * time.Second)
+
+	val, closestNodes, err := receiverDht.GET(strKey)
+	if err != nil {
+		assert.NoError(t, err, "GET should not return an error")
+	}
+
+	if val != "" {
+		log.Print("Value:", val)
+	} else {
+		log.Print("Value not found, nodes length: ", len(closestNodes))
+		for _, node := range closestNodes {
+			log.Print("ID:", node.ID)
+		}
+	}
+
+	assert.NotEqual(t, "", val, "GET should return a non-empty value")
+	assert.Equal(t, "value", val, "GET should return the correct value")
+}
