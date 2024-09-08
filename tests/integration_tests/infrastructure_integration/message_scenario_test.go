@@ -1,8 +1,8 @@
 package tests
 
 import (
+	"crypto/tls"
 	"fmt"
-	"net"
 	"testing"
 	"time"
 
@@ -13,6 +13,7 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
+
 func TestPingPongIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
@@ -27,8 +28,7 @@ func TestPingPongIntegration(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
-	conn, err := net.Dial("tcp", config.P2PAddress)
-	assert.NoError(t, err)
+	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
 
 	// Step 1: Send DHT_PING message
@@ -65,8 +65,7 @@ func TestPutMessageIntegration(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
-	conn, err := net.Dial("tcp", config.P2PAddress)
-	assert.NoError(t, err)
+	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
 
 	// Create and send DHT_PUT message
@@ -108,8 +107,7 @@ func TestGetMessageIntegration(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
-	conn, err := net.Dial("tcp", config.P2PAddress)
-	assert.NoError(t, err)
+	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
 
 	// First, send a DHT_PUT message to store a value
@@ -161,8 +159,7 @@ func TestPutGetIntegration(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
-	conn, err := net.Dial("tcp", config.P2PAddress)
-	assert.NoError(t, err)
+	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
 
 	// 1. Send DHT_PUT message
@@ -228,8 +225,7 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
-	conn, err := net.Dial("tcp", config.P2PAddress)
-	assert.NoError(t, err)
+	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
 
 	// 1. Send DHT_GET message for a non-existent key
@@ -255,4 +251,17 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	failureMsg, ok := response.(*message.DHTFailureMessage)
 	assert.True(t, ok)
 	assert.Equal(t, key, failureMsg.Key)
+}
+
+
+func setupTLSConnection(t *testing.T, address string) *tls.Conn {
+	// Set up the TLS config for the client
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	// Establish a TLS connection to the server
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	assert.NoError(t, err)
+	return conn
 }

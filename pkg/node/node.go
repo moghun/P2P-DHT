@@ -11,27 +11,31 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 type NodeInterface interface {
 	Put(key, value string, ttl int) error
 	Get(key string) (string, error)
+	FindNode(originID string, targetID string) ([]*dht.KNode, error)
+	FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error)
 	AddPeer(nodeID, ip string, port int)
 	GetAllPeers() []*Node
+	GetID() string
 }
 
 type Node struct {
-	ID       string
-	IP       string
-	Port     int
-	Nonce    int
-	Ping     bool
-	DHT      *dht.DHT
-	Storage  *storage.Storage
-	Network  NetworkInterface
-	Config   *util.Config
-	IsDown   bool
-	mu       sync.Mutex
+	ID      string
+	IP      string
+	Port    int
+	Nonce   int
+	Ping    bool
+	DHT     *dht.DHT
+	Storage *storage.Storage
+	Network message.NetworkInterface
+	Config  *util.Config
+	IsDown  bool
+	mu      sync.Mutex
 }
 
 func NewNode(config *util.Config, ttl time.Duration) *Node {
@@ -42,18 +46,18 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 	id, nonce := security.GenerateNodeIDWithPoW(ip, port)
 
 	node := &Node{
-		ID:       id,
-		IP:       ip,
-		Port:     port,
-		Nonce:    nonce,
-		Ping:     true,
-		DHT:      dht.NewDHT(ttl, config.EncryptionKey),
-		Storage:  storage.NewStorage(ttl, config.EncryptionKey),
-		IsDown:   false,
-		Config:   config,  // Set the configuration
+		ID:      id,
+		IP:      ip,
+		Port:    port,
+		Nonce:   nonce,
+		Ping:    true,
+		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
+		Storage: storage.NewStorage(ttl, config.EncryptionKey),
+		IsDown:  false,
+		Config:  config, // Set the configuration
 	}
 
-	node.Network = NewNetwork(node)
+	node.Network = message.NewNetwork(ip, id ,port)
 
 	go node.DHT.Join()
 	return node
@@ -73,6 +77,18 @@ func (n *Node) Get(key string) (string, error) {
 	return value, nil
 }
 
+func (n *Node) FindNode(originID string, targetID string) ([]*dht.KNode, error) {
+	return n.DHT.FindNode(originID, targetID)
+}
+
+func (n *Node) FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error) {
+	return n.DHT.FindValue(originID, targetKeyID)
+}
+
+func (n *Node) GetID() string {
+	return n.ID
+}
+
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	// Validate the node ID using PoW before adding the peer
@@ -81,7 +97,6 @@ func (n *Node) AddPeer(nodeID, ip string, port int) {
 		// Add peer logic here...
 	}
 }
-
 
 // RemovePeer is a placeholder for removing a peer from the node's routing table (mocked for now).
 func (n *Node) RemovePeer(ip string, port int) {
@@ -104,4 +119,5 @@ func GenerateNodeID(ip string, port int) string {
 	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
 	return hex.EncodeToString(h.Sum(nil))
 }
+
 /**************************/

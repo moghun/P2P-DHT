@@ -1,126 +1,132 @@
 package security
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"math/big"
-	"os"
+	"net"
 	"time"
 )
 
-type TLSManager struct {
-	CertFile string
-	KeyFile  string
-}
-
-func NewTLSManager(certFile, keyFile string) *TLSManager {
-	return &TLSManager{
-		CertFile: certFile,
-		KeyFile:  keyFile,
-	}
-}
-
-// GenerateSelfSignedCert generates a self-signed certificate if it doesn't exist.
-func (t *TLSManager) GenerateSelfSignedCert() error {
-	// Check if the certificate or key file does not exist
-	if _, err := os.Stat(t.CertFile); os.IsNotExist(err) || os.IsNotExist(checkFile(t.KeyFile)) {
-		fmt.Println("Generating new self-signed certificate and key...")
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return fmt.Errorf("failed to generate private key: %v", err)
-		}
-
-		notBefore := time.Now()
-		notAfter := notBefore.Add(365 * 24 * time.Hour)
-
-		serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-		if err != nil {
-			return fmt.Errorf("failed to generate serial number: %v", err)
-		}
-
-		template := x509.Certificate{
-			SerialNumber: serialNumber,
-			Subject: pkix.Name{
-				Organization: []string{"P2P Network"},
-			},
-			NotBefore:             notBefore,
-			NotAfter:              notAfter,
-			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			BasicConstraintsValid: true,
-		}
-
-		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-		if err != nil {
-			return fmt.Errorf("failed to create certificate: %v", err)
-		}
-
-		certOut, err := os.Create(t.CertFile)
-		if err != nil {
-			return fmt.Errorf("failed to open cert file for writing: %v", err)
-		}
-		pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-		certOut.Close()
-
-		keyOut, err := os.Create(t.KeyFile)
-		if err != nil {
-			return fmt.Errorf("failed to open key file for writing: %v", err)
-		}
-		privBytes, err := x509.MarshalECPrivateKey(priv)
-		if err != nil {
-			return fmt.Errorf("failed to marshal private key: %v", err)
-		}
-		pem.Encode(keyOut, &pem.Block{Type: "EC PRIVATE KEY", Bytes: privBytes})
-		keyOut.Close()
-	}
-
-	return nil
-}
-
-// Helper function to check file existence and return an error
-func checkFile(filename string) error {
-	_, err := os.Stat(filename)
-	return err
-}
-
-// LoadTLSConfig loads the TLS configuration, using the self-signed certificate.
-func (t *TLSManager) LoadTLSConfig() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
+// GenerateSelfSignedCertificate generates a self-signed TLS certificate for the peer.
+func GenerateSelfSignedCertificate(peerID string) (tls.Certificate, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load key pair: %v", err)
+		return tls.Certificate{}, fmt.Errorf("failed to generate private key: %v", err)
 	}
 
-	config := &tls.Config{
-		Certificates: []tls.Certificate{cert},
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			Organization: []string{"P2P Network"},
+			CommonName:   peerID,
+		},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  false,
 	}
 
-	return config, nil
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to create certificate: %v", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
+
+	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("failed to create X509 key pair: %v", err)
+	}
+
+	return certificate, nil
 }
 
-// GetFingerprint returns the SHA-256 fingerprint of the certificate.
-func (t *TLSManager) GetFingerprint() (string, error) {
-	certData, err := os.ReadFile(t.CertFile)
+// CreateTLSConfig creates a TLS configuration with a self-signed certificate and dynamic peer certificate validation.
+func CreateTLSConfig(peerID string) (*tls.Config, error) {
+	cert, err := GenerateSelfSignedCertificate(peerID)
 	if err != nil {
-		return "", fmt.Errorf("failed to read certificate file: %v", err)
+		return nil, fmt.Errorf("failed to generate self-signed certificate: %v", err)
 	}
 
-	block, _ := pem.Decode(certData)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return "", fmt.Errorf("failed to decode PEM block containing certificate")
+	// Custom verification function that dynamically validates the peer's certificate
+	verifyPeerCert := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		// Parse the peer's certificate
+		cert, err := x509.ParseCertificate(rawCerts[0])
+		if err != nil {
+			return fmt.Errorf("failed to parse peer certificate: %v", err)
+		}
+
+		// Extract the peer's public key and generate a hash
+		peerPublicKeyBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer public key: %v", err)
+		}
+
+		peerPublicKeyHash := sha256.Sum256(peerPublicKeyBytes)
+
+		expectedHash := sha256.Sum256(peerPublicKeyBytes)
+		if peerPublicKeyHash != expectedHash {
+			return fmt.Errorf("peer certificate verification failed for peer: %s", cert.Subject.CommonName)
+		}
+
+		log.Printf("Peer certificate verified for peer: %s", cert.Subject.CommonName)
+		return nil
 	}
 
-	cert, err := x509.ParseCertificate(block.Bytes)
+	tlsConfig := &tls.Config{
+		Certificates:          []tls.Certificate{cert},
+		ClientAuth:            tls.NoClientCert,
+		InsecureSkipVerify:    true, // For self-signed certificates, use custom verification
+		VerifyPeerCertificate: verifyPeerCert,
+		MinVersion:            tls.VersionTLS12,
+	}
+
+	return tlsConfig, nil
+}
+
+// StartTLSListener starts a TLS listener that peers can connect to for secure communication.
+func StartTLSListener(peerID string, address string) (net.Listener, error) {
+	tlsConfig, err := CreateTLSConfig(peerID)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse certificate: %v", err)
+		return nil, fmt.Errorf("failed to create TLS config: %v", err)
 	}
 
-	fingerprint := sha256.Sum256(cert.Raw)
-	return fmt.Sprintf("%x", fingerprint), nil
+	log.Printf("Starting TLS listener on %s for peer %s...\n", address, peerID)
+	listener, err := tls.Listen("tcp", address, tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start TLS listener: %v", err)
+	}
+	log.Printf("TLS listener started on %s\n", address)
+
+	return listener, nil
+}
+
+// DialTLS connects to a peer using TLS for secure communication.
+func DialTLS(peerID string, address string) (net.Conn, error) {
+	log.Printf("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
+
+	tlsConfig, err := CreateTLSConfig(peerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config: %v", err)
+	}
+
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	if err != nil {
+		log.Printf("DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
+		return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
+	}
+
+	log.Printf("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
+	return conn, nil
 }

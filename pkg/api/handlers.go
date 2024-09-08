@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 )
@@ -61,11 +62,33 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	findNodeMsg := msg.(*message.DHTFindNodeMessage)
 	node := nodeInstance.(*node.Node)
 
-	// Asynchronously process FIND_NODE request
+	var nodes []*dht.KNode
+	var err error
+
+	done := make(chan bool)
 	go func() {
-		// Implement your DHT logic here
-		log.Print("Is Node down?:", node.IsDown)
+		nodes, err = nodeInstance.FindNode(string(nodeInstance.GetID()), string(findNodeMsg.Key[:]))
+
+		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
+	<-done
+
+	if err != nil {
+		log.Printf("Error processing FIND_NODE in DHT: %v", err)
+
+		failureMsg, _ := message.NewDHTFailureMessage(findNodeMsg.Key).Serialize()
+		return failureMsg
+	} else {
+		// TODO Handle success message serialization
+		log.Printf("Closest nodes: %v", nodes)
+
+		var nodeBytes []byte
+		for _, n := range nodes {
+			nodeBytes = append(nodeBytes, string(n.Serialize())...)
+		}
+		successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, nodeBytes).Serialize()
+		return successMsg
+	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findNodeMsg.Key, []byte("mock-node")).Serialize()
 	return successMsg
@@ -75,11 +98,55 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	findValueMsg := msg.(*message.DHTFindValueMessage)
 	node := nodeInstance.(*node.Node)
 
+	var value string
+	var nodes []*dht.KNode
+	var err error
+
 	// Asynchronously process FIND_VALUE request
+	done := make(chan bool)
 	go func() {
-		// Implement DHT logic here
-		log.Print("Is Node down?:", node.IsDown)
+		value, nodes, err = nodeInstance.FindValue(string(nodeInstance.GetID()), string(findValueMsg.Key[:]))
+
+		log.Print("Is Node down?:", node.IsDown) // Why this?
 	}()
+	<-done
+
+	if err != nil {
+		log.Printf("Error processing FIND_VALUE in DHT: %v", err)
+
+		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+		return failureMsg
+	} else {
+		successResponse := dht.SuccessMessageResponse{
+			Value: value,
+			Nodes: nodes,
+		}
+
+		if value != "" || nodes != nil {
+			log.Printf("Value or Nodes found")
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, successResponse.Serialize()).Serialize()
+			return successMsg
+		} else {
+			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+			return failureMsg
+		}
+
+		/* if value != "" {
+			log.Printf("Value found: %s", value)
+
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte(value)).Serialize()
+			return successMsg
+		} else {
+			log.Printf("Value not found. Closest nodes: %v", nodes)
+
+			var nodeBytes []byte
+			for _, n := range nodes {
+				nodeBytes = append(nodeBytes, string(n.Serialize())...)
+			}
+			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, nodeBytes).Serialize()
+			return successMsg
+		} */
+	}
 
 	successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, []byte("mock-value")).Serialize()
 	return successMsg
@@ -93,7 +160,7 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	log.Printf("Handling bootstrap request from node: %s", ipPort)
 
 	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
-		// Use BootstrapNode specific methods or handle the request accordingly -- TODO
+		//TODO: Use BootstrapNode specific methods or handle the request accordingly
 		bn.KnownPeers[ipPort] = "1"
 	}
 
@@ -109,13 +176,14 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	return bootstrapReplyMsg
 }
 
+
+
+
+//NOT TODO
 func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
 	nodeInstance = nodeInstance.(*node.Node)
-
-
-	//TODO:
-	//THIS METHOD MUST USE THE ADD PEER FUNCTIONALITY ETC. NOT LIKE THIS!
+	
 	nodes := bootstrapReplyMsg.ParseNodes()
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
