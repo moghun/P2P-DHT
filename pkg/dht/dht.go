@@ -54,6 +54,7 @@ func EnsureKeyHashed(key string) string {
 
 // PUT stores a value in the DHT.
 func (d *DHT) PUT(key, value string, ttl int) error {
+	key = EnsureKeyHashed(key)
 	nodesToStore, err := d.FindNode(key)
 	if err != nil {
 		return err
@@ -184,6 +185,7 @@ func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 
 func (d *DHT) StoreToStorage(key, value string, ttl int) error {
 	log.Print("Storing to storage")
+	key = EnsureKeyHashed(key)
 	return d.Storage.Put(key, value, ttl)
 }
 
