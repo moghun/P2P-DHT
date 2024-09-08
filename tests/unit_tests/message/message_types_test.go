@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
@@ -124,8 +125,12 @@ func TestDHTFailureMessage(t *testing.T) {
 func TestDHTStoreMessage(t *testing.T) {
 
 	key := "testkey"
+	hashKey := dht.EnsureKeyHashed(key)
 	value := "testvalue"
-	msg := message.NewDHTStoreMessage(10000, 2, message.StringToByte32(key), []byte(value))
+
+	byte32Key, err := message.HexStringToByte32(hashKey)
+	assert.NoError(t, err)
+	msg := message.NewDHTStoreMessage(10000, 2, byte32Key, []byte(value))
 
 	serialized, err := msg.Serialize()
 	assert.NoError(t, err)

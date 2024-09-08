@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"log"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +16,9 @@ import (
 )
 
 func TestStoreToStorage(t *testing.T) {
-	key := [32]byte{}
+	//key := [32]byte{}
+	keyStr := "key"
+	hashKey := dht.EnsureKeyHashed(keyStr)
 	value := []byte("value")
 
 	// Initialize a real storage and node for testing
@@ -31,17 +32,19 @@ func TestStoreToStorage(t *testing.T) {
 	}
 
 	// Store the value in the DHT
-	err := realNode.DHT.StoreToStorage(string(key[:]), string(value), 3600)
+	err := realNode.DHT.StoreToStorage(hashKey, string(value), 3600)
 	assert.NoError(t, err, "StoreToStorage should not return an error")
 
 	// Check if the value exists in the storage
-	retrievedValue, err := realNode.DHT.GetFromStorage(string(key[:]))
+	retrievedValue, err := realNode.DHT.GetFromStorage(hashKey)
 	assert.NoError(t, err, "GetFromStorage should not return an error")
 	assert.Equal(t, string(value), retrievedValue, "The value retrieved should match the value stored")
 }
 
 func TestGetFromStorage(t *testing.T) {
-	key := [32]byte{}
+	//key := [32]byte{}
+	keyStr := "key"
+	hashKey := dht.EnsureKeyHashed(keyStr)
 	value := []byte("value")
 
 	// Initialize a real storage and node for testing
@@ -55,11 +58,11 @@ func TestGetFromStorage(t *testing.T) {
 	}
 
 	// Store the value in the DHT
-	err := realNode.DHT.StoreToStorage(string(key[:]), string(value), 3600)
+	err := realNode.DHT.StoreToStorage(hashKey, string(value), 3600)
 	assert.NoError(t, err, "StoreToStorage should not return an error")
 
 	// Check if the value exists in the storage
-	retrievedValue, err := realNode.DHT.GetFromStorage(string(key[:]))
+	retrievedValue, err := realNode.DHT.GetFromStorage(hashKey)
 	assert.NoError(t, err, "GetFromStorage should not return an error")
 	assert.Equal(t, string(value), retrievedValue, "The value retrieved should match the value stored")
 }
@@ -107,6 +110,7 @@ func TestSendStoreMessage(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	key := "testkey"
+	hashKey := dht.EnsureKeyHashed(key)
 	value := "testvalue"
 
 	receiverKNode := dht.KNode{
@@ -115,7 +119,7 @@ func TestSendStoreMessage(t *testing.T) {
 		Port: receiverPort,
 	}
 
-	storeMessageResponse, err := senderDht.SendStoreMessage(key, value, receiverKNode)
+	storeMessageResponse, err := senderDht.SendStoreMessage(hashKey, value, receiverKNode)
 	if err != nil {
 		log.Print("Send store message error")
 	}
@@ -125,7 +129,7 @@ func TestSendStoreMessage(t *testing.T) {
 	assert.Equal(t, message.DHT_SUCCESS, storeMessageResponse.GetType(), "The response message should be a success message")
 
 	// Check if the value exists in the storage
-	retrievedValue, _, err := receiverNode.DHT.GET(key)
+	retrievedValue, _, err := receiverNode.DHT.GET(hashKey)
 	log.Print("Retrieved value:", retrievedValue)
 	assert.NoError(t, err, "GET should not return an error")
 	assert.Equal(t, value, retrievedValue, "The value retrieved should match the value stored")
@@ -133,6 +137,7 @@ func TestSendStoreMessage(t *testing.T) {
 
 func TestCreateStoreMessage(t *testing.T) {
 	key := "testkey"
+	hashKey := dht.EnsureKeyHashed(key)
 	value := "testvalue"
 
 	// Initialize a real storage and node for testing
@@ -146,7 +151,7 @@ func TestCreateStoreMessage(t *testing.T) {
 	}
 
 	// Create a store message
-	storeMsg, err := realNode.DHT.CreateStoreMessage(key, value)
+	storeMsg, err := realNode.DHT.CreateStoreMessage(hashKey, value)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, storeMsg)
@@ -159,11 +164,10 @@ func TestCreateStoreMessage(t *testing.T) {
 
 	// Convert deserialized key to a string for comparison
 	storeMessage := deserializedMsg.(*message.DHTStoreMessage)
-	deserializedKey := string(storeMessage.Key[:]) // Convert byte32 array to string
-	trimmedKey := strings.TrimRight(deserializedKey, "\x00")
+	deserializedKey := message.Byte32ToHexEncode(storeMessage.Key)
 
 	// Compare both keys as strings
-	assert.Equal(t, key, trimmedKey)
+	assert.Equal(t, hashKey, deserializedKey)
 }
 
 func TestHashKey(t *testing.T) {

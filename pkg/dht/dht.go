@@ -100,7 +100,12 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 }
 
 func (d *DHT) CreateStoreMessage(key, value string) ([]byte, error) {
-	msg := message.NewDHTStoreMessage(10000, 2, message.StringToByte32(key), []byte(value))
+	byte32Key, err := message.HexStringToByte32(key)
+	if err != nil {
+		log.Printf("Error converting key to byte32: %v", err)
+		return nil, err
+	}
+	msg := message.NewDHTStoreMessage(10000, 2, byte32Key, []byte(value))
 	rpcMessage, serializationErr := msg.Serialize()
 
 	if serializationErr != nil { //TODO handle error
@@ -191,7 +196,7 @@ func (d *DHT) StoreToStorage(key, value string, ttl int) error {
 }
 
 func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
-	value, err := d.GetFromStorage(message.StringTo32ByteString(targetKeyID))
+	value, err := d.GetFromStorage(targetKeyID)
 
 	if err != nil {
 		return "", nil, err
@@ -248,7 +253,12 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 			}
 			queriedNodes[node.ID] = true
 
-			msg := message.NewDHTFindNodeMessage(message.StringToByte32(targetID))
+			byte32Key, err := message.HexStringToByte32(targetID)
+			if err != nil {
+				log.Printf("Error converting key to byte32: %v", err)
+				return nil, err
+			}
+			msg := message.NewDHTFindNodeMessage(byte32Key)
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error
@@ -331,7 +341,12 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 			}
 			queriedNodes[node.ID] = true
 
-			msg := message.NewDHTFindValueMessage(message.StringToByte32(targetID))
+			byte32Key, err := message.HexStringToByte32(targetID)
+			if err != nil {
+				log.Printf("Error converting key to byte32: %v", err)
+				return "", nil, err
+			}
+			msg := message.NewDHTFindValueMessage(byte32Key)
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error

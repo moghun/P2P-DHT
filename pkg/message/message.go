@@ -3,6 +3,7 @@ package message
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 )
 
@@ -127,4 +128,24 @@ func Byte32ToString(id [32]byte) string {
 func StringTo32ByteString(id string) string {
 	byteId := StringToByte32(id)
 	return string(byteId[:])
+}
+
+func HexStringToByte32(id string) ([32]byte, error) {
+	decoded, err := hex.DecodeString(id)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	var byteID [32]byte
+	copy(byteID[:], decoded)
+	return byteID, nil
+}
+
+func IsHexEncoded(s string) bool {
+	_, err := hex.DecodeString(s)
+	return err == nil
+}
+
+func Byte32ToHexEncode(key [32]byte) string {
+	return hex.EncodeToString(key[:20])
 }
