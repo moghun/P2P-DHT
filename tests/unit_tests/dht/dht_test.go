@@ -211,6 +211,7 @@ func TestEnsureKeyHashed(t *testing.T) {
 		input    string
 		expected string
 	}{
+		{"id1", "f3436f50b2f7f1613ad142dbce1d24801d9daaab"},
 		{"exampleKey", "c8f61512ae6831f3419eda280b68cee2113f63c5"},                               // Hash of "exampleKey"
 		{"b1a1f0e8b915efb0911e7fc92f941bfc23dfd7d8", "b1a1f0e8b915efb0911e7fc92f941bfc23dfd7d8"}, // Already hashed
 	}
@@ -274,65 +275,53 @@ func TestXORDistance(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result, err := dht.XOR(test.id1, test.id2)
+		distance, err := dht.XOR(test.id1, test.id2)
 		if err != nil {
-			t.Errorf("XORDistance(%q, %q) returned an error: %v", test.id1, test.id2, err)
-			continue
+			t.Errorf("XOR(%q, %q) returned an error: %v", test.id1, test.id2, err)
 		}
-		if result.Int64() != int64(test.distance) {
-			t.Errorf("XORDistance(%q, %q) = %d; want %d", test.id1, test.id2, result, test.distance)
+		if distance != test.distance {
+			t.Errorf("XOR(%q, %q) = %d; want %d", test.id1, test.id2, distance, test.distance)
 		}
 	}
 }
 
-// Test for the XOR distance function
-func TestXORDistance1(t *testing.T) {
-	// Test cases with precomputed distances
-	tests := []struct {
-		id1      string
-		id2      string
-		distance int
-	}{
-		{"0000000000000000000000000000000000000000", "ffffffffffffffffffffffffffffffffffffffff", 160},
-		{"fe5b9e737884dd552689492b3af815401bb9e03d", "db4d37c234ed01182591d1a1794ae2f06444cb1f", 77},
-		{"fe5b9e737884dd552689492b3af815401bb9e03d", "10090e73a9868c30fa72b9fab4b1bc6df95320c3", 76},
+func TestFindNode(t *testing.T) {
+	// Initialize a real storage and node for testing
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht.RoutingTable.NodeID = hashedNodeId
+
+	var hashList []string
+	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
+		"id21", "id22", "id23", "id24", "id25", "id26", "id27", "id28", "id29", "id30", "id31", "id32", "id33", "id34", "id35", "id36", "id37", "id38", "id39", "id40"}
+	for _, id := range idList {
+		hashList = append(hashList, dht.EnsureKeyHashed(id))
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.id1+"_"+tt.id2, func(t *testing.T) {
-			// Calculate XOR distance
-			xorResult, err := dht.XOR(tt.id1, tt.id2)
-			if err != nil {
-				t.Fatalf("XOR failed with error: %v", err)
-			}
+	for i, hash := range hashList {
+		newKNode := &dht.KNode{
+			ID:   hash,
+			IP:   "1",
+			Port: 8080,
+		}
+		log.Print("Adding node to routing table: ", i)
+		newDht.RoutingTable.AddNode(newKNode)
+	}
 
-			// Calculate the distance by finding the most significant bit set
-			calculatedDistance := xorResult.BitLen()
+	strKey := "id45"
+	strKey = dht.EnsureKeyHashed(strKey)
 
-			if calculatedDistance != tt.distance {
-				t.Errorf("Expected distance %d, but got %d", tt.distance, calculatedDistance)
-			}
-		})
+	log.Print("Finding node closest to key:", strKey)
+	closestNodes, err := newDht.FindNode(strKey)
+	if err != nil {
+		assert.NoError(t, err, "FindNode should not return an error")
+	}
+
+	assert.NotNil(t, closestNodes, "FindNode should return a list of closest nodes")
+	assert.NotEmpty(t, closestNodes, "FindNode should return a non-empty list of closest nodes")
+
+	for _, node := range closestNodes {
+		log.Print("ID:", node.ID)
 	}
 }
-
-// // TestCountBits tests the countBits function.
-// func TestCountBits(t *testing.T) {
-// 	tests := []struct {
-// 		input    byte
-// 		expected int
-// 	}{
-// 		{0x00, 0}, // No bits set
-// 		{0x01, 1}, // Single bit set
-// 		{0x0F, 4}, // All 4 lower bits set
-// 		{0xFF, 8}, // All bits set in a byte
-// 		{0xAA, 4}, // 10101010 (alternating bits)
-// 	}
-
-// 	for _, test := range tests {
-// 		result := dht.CountBits(test.input)
-// 		if result != test.expected {
-// 			t.Errorf("countBits(%02x) = %d; want %d", test.input, result, test.expected)
-// 		}
-// 	}
-// }
