@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -26,17 +25,17 @@ type NodeInterface interface {
 }
 
 type Node struct {
-	ID           string
-	IP           string
-	Port         int
-	Nonce        int
-	Ping         bool
-	DHT          *dht.DHT
-	Storage      *storage.Storage
-	Network      message.NetworkInterface
-	Config       *util.Config
-	IsDown       bool
-	mu           sync.Mutex
+	ID      string
+	IP      string
+	Port    int
+	Nonce   int
+	Ping    bool
+	DHT     *dht.DHT
+	Storage *storage.Storage
+	Network message.NetworkInterface
+	Config  *util.Config
+	IsDown  bool
+	mu      sync.Mutex
 }
 
 func NewNode(config *util.Config, ttl time.Duration) *Node {
@@ -47,15 +46,15 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 	id, nonce := security.GenerateNodeIDWithPoW(ip, port)
 
 	node := &Node{
-		ID:           id,
-		IP:           ip,
-		Port:         port,
-		Nonce:        nonce,
-		Ping:         true,
-		DHT:          dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
-		Storage:      storage.NewStorage(ttl, config.EncryptionKey),
-		IsDown:       false,
-		Config:       config, // Set the configuration
+		ID:      id,
+		IP:      ip,
+		Port:    port,
+		Nonce:   nonce,
+		Ping:    true,
+		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
+		Storage: storage.NewStorage(ttl, config.EncryptionKey),
+		IsDown:  false,
+		Config:  config, // Set the configuration
 	}
 
 	node.Network = message.NewNetwork(ip, id, port)
