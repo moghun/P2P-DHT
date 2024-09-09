@@ -522,7 +522,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 	}
 
 	if len(failedNodes) > 0 {
-		util.Log().Info("Failed nodes: %v", failedNodes)
+		util.Log().Info("Failed nodes:", failedNodes)
 	}
 
 	return "", shortlist[:min(len(shortlist), K)], nil
