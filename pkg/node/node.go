@@ -26,17 +26,17 @@ type NodeInterface interface {
 }
 
 type Node struct {
-	ID           string
-	IP           string
-	Port         int
-	Nonce        int
-	Ping         bool
-	DHT          *dht.DHT
-	Storage      *storage.Storage
-	Network      message.NetworkInterface
-	Config       *util.Config
-	IsDown       bool
-	mu           sync.Mutex
+	ID      string
+	IP      string
+	Port    int
+	Nonce   int
+	Ping    bool
+	DHT     *dht.DHT
+	Storage *storage.Storage
+	Network message.NetworkInterface
+	Config  *util.Config
+	IsDown  bool
+	mu      sync.Mutex
 }
 
 func NewNode(config *util.Config, cleanup_interval time.Duration) *Node {

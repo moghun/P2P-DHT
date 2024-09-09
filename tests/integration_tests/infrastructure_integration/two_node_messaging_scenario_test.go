@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
@@ -15,9 +16,9 @@ import (
 
 // TestTwoNodePingPong refactored to use SendMessage
 func TestTwoNodePingPong(t *testing.T) {
-    // Set up Node 1
-    port1, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 1
+	port1, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
@@ -45,7 +46,7 @@ func TestTwoNodePingPong(t *testing.T) {
     node2 := node.NewNode(config2, 86400)
     go api.StartServer(config2.P2PAddress, node2)
 
-    time.Sleep(1 * time.Second) // Ensure both servers are up
+	time.Sleep(1 * time.Second) // Ensure both servers are up
 
     // Create the ping message
     pingMsg := message.NewDHTPingMessage()
@@ -67,9 +68,9 @@ func TestTwoNodePingPong(t *testing.T) {
 
 // TestTwoNodePut refactored to use SendMessage
 func TestTwoNodePut(t *testing.T) {
-    // Set up Node 1
-    port1, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 1
+	port1, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
@@ -83,9 +84,9 @@ func TestTwoNodePut(t *testing.T) {
     node1 := node.NewNode(config1, 86400)
     go api.StartServer(config1.P2PAddress, node1)
 
-    // Set up Node 2
-    port2, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 2
+	port2, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
@@ -96,7 +97,7 @@ func TestTwoNodePut(t *testing.T) {
     node2 := node.NewNode(config2, 86400)
     go api.StartServer(config2.P2PAddress, node2)
 
-    time.Sleep(1 * time.Second) // Ensure both servers are up
+	time.Sleep(1 * time.Second) // Ensure both servers are up
 
     // Create the put message
     var key [32]byte
@@ -122,9 +123,9 @@ func TestTwoNodePut(t *testing.T) {
 
 // TestTwoNodeGet refactored to use SendMessage
 func TestTwoNodeGet(t *testing.T) {
-    // Set up Node 1
-    port1, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 1
+	port1, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
@@ -138,9 +139,9 @@ func TestTwoNodeGet(t *testing.T) {
     node1 := node.NewNode(config1, 86400)
     go api.StartServer(config1.P2PAddress, node1)
 
-    // Set up Node 2
-    port2, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 2
+	port2, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
@@ -151,7 +152,7 @@ func TestTwoNodeGet(t *testing.T) {
     node2 := node.NewNode(config2, 86400)
     go api.StartServer(config2.P2PAddress, node2)
 
-    time.Sleep(1 * time.Second) // Ensure both servers are up
+	time.Sleep(1 * time.Second) // Ensure both servers are up
 
     // First, send a DHT_PUT message to store a value
     var key [32]byte
@@ -195,9 +196,9 @@ func TestTwoNodeGet(t *testing.T) {
 
 // TestTwoNodePutGet refactored to use SendMessage
 func TestTwoNodePutGet(t *testing.T) {
-    // Set up Node 1
-    port1, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 1
+	port1, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
@@ -211,9 +212,9 @@ func TestTwoNodePutGet(t *testing.T) {
     node1 := node.NewNode(config1, 86400)
     go api.StartServer(config1.P2PAddress, node1)
 
-    // Set up Node 2
-    port2, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 2
+	port2, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
@@ -224,7 +225,7 @@ func TestTwoNodePutGet(t *testing.T) {
     node2 := node.NewNode(config2, 86400)
     go api.StartServer(config2.P2PAddress, node2)
 
-    time.Sleep(1 * time.Second) // Ensure both servers are up
+	time.Sleep(1 * time.Second) // Ensure both servers are up
 
     // 1. Send DHT_PUT message from Node 1 to Node 2
     var key [32]byte
