@@ -103,19 +103,19 @@ func StartTLSListener(peerID string, address string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to create TLS config: %v", err)
 	}
 
-	util.Log().Infof("Starting TLS listener on %s for peer %s...\n", address, peerID)
+	util.Log().Infof("Starting TLS listener on %s for peer %s...", address, peerID)
 	listener, err := tls.Listen("tcp", address, tlsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start TLS listener: %v", err)
 	}
-	util.Log().Infof("TLS listener started on %s\n", address)
+	util.Log().Infof("TLS listener started on %s", address)
 
 	return listener, nil
 }
 
 // DialTLS connects to a peer using TLS for secure communication.
 func DialTLS(peerID string, address string) (net.Conn, error) {
-	util.Log().Infof("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
+	util.Log().Infof("DialTLS: Attempting to connect to %s (%s)", peerID, address)
 
 	tlsConfig, err := CreateTLSConfig(peerID)
 	if err != nil {
@@ -124,10 +124,10 @@ func DialTLS(peerID string, address string) (net.Conn, error) {
 
 	conn, err := tls.Dial("tcp", address, tlsConfig)
 	if err != nil {
-		util.Log().Errorf("Error: DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
+		util.Log().Errorf("Error: DialTLS: Failed to dial TLS connection to %s: %v", address, err)
 		return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
 	}
 
-	util.Log().Infof("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
+	util.Log().Infof("DialTLS: Peer %s successfully connected to (%s)", peerID, address)
 	return conn, nil
 }

@@ -19,7 +19,7 @@ func StartServer(address string, nodeInstance node.NodeInterface) error {
 	}
 	defer listener.Close()
 
-	util.Log().Infof("API TLS server running at %s\n", address)
+	util.Log().Infof("API TLS server running at %s", address)
 
 	for {
 		conn, err := listener.Accept()
@@ -48,7 +48,7 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 			return
 		}
 
-		util.Log().Infof("Received %d bytes: %x", n, buf[:n])
+		util.Log().Infof("(%s) received %d bytes: %x", nodeInstance.GetID(), n, buf[:n])
 
 		msg, err := message.DeserializeMessage(buf[:n])
 		if err != nil {
@@ -85,6 +85,6 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 			return
 		}
 
-		util.Log().Infof("Sent response: %x", response)
+		util.Log().Infof("(%s) sent response: %x", nodeInstance.GetID(), response)
 	}
 }

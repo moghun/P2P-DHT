@@ -65,7 +65,7 @@ func main() {
 
 	// Block until a signal is received
 	sig := <-sigChan
-	util.Log().Infof("Received signal %s, shutting down...\n", sig)
+	util.Log().Infof("Received signal %s, shutting down...", sig)
 
 	// Gracefully shut down the node
 	nodeInstance.Shutdown()

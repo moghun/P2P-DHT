@@ -61,7 +61,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
-	util.Log().Infof("Received signal %s, shutting down...\n", sig)
+	util.Log().Infof("Received signal %s, shutting down...", sig)
 
 	// Gracefully shut down the BootstrapNode
 	bootstrapNodeInstance.Shutdown()

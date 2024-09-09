@@ -212,7 +212,7 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	nodeInstance = nodeInstance.(*node.BootstrapNode) //BOOTSTRAP NODE
 
 	ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
-	util.Log().Infof("Handling bootstrap request from node: %s", ipPort)
+	util.Log().Infof("Bootstrapping node (%s) handling bootstrap request from node: %s", nodeInstance.GetID(), ipPort)
 
 	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
 		//TODO: Use BootstrapNode specific methods or handle the request accordingly
@@ -240,7 +240,7 @@ func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) 
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
 		nodeInstance.AddPeer(nodeID, nodeInfo.IP, nodeInfo.Port)
-		util.Log().Infof("Added node %s:%d to routing table.\n", nodeInfo.IP, nodeInfo.Port)
+		util.Log().Infof("Added node %s:%d to routing table.", nodeInfo.IP, nodeInfo.Port)
 	}
 
 	return nil
