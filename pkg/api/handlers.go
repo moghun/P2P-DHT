@@ -8,6 +8,7 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
@@ -26,7 +27,7 @@ func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 			return
 		}
 		if err := node.DHT.PUT(encodedKey, string(putMsg.Value), int(putMsg.TTL)); err != nil {
-			log.Printf("Error processing PUT in DHT: %v", err)
+			util.Log().Errorf("Error processing PUT in DHT: %v", err)
 		}
 		done <- true
 	}()
@@ -34,7 +35,7 @@ func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	<-done // Wait for the asynchronous operation to complete
 
 	if err != nil {
-		log.Printf("Error processing PUT in DHT: %v", err)
+		util.Log().Errorf("Error processing PUT in DHT: %v", err)
 		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
 		return failureMsg
 	}
@@ -110,7 +111,7 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	<-done
 
 	if err != nil || nodes == nil {
-		log.Printf("Error processing FIND_NODE in DHT: %v", err)
+		util.Log().Errorf("Error processing FIND_NODE in DHT: %v", err)
 
 		failureMsg, _ := message.NewDHTFailureMessage(findNodeMsg.Key).Serialize()
 		return failureMsg
@@ -149,7 +150,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 	<-done
 
 	if err != nil || (nodes == nil && value == "") {
-		log.Printf("Error processing FIND_VALUE in DHT: %v", err)
+		util.Log().Errorf("Error processing FIND_VALUE in DHT: %v", err)
 
 		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 		return failureMsg
@@ -160,11 +161,11 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 		}
 
 		if value != "" || nodes != nil {
-			log.Printf("Value or Nodes found")
+			util.Log().Info("Value or Nodes found")
 			successMsg, _ := message.NewDHTSuccessMessage(findValueMsg.Key, successResponse.Serialize()).Serialize()
 			return successMsg
 		} else {
-			log.Printf("Error processing FIND_VALUE in DHT: %v", err)
+			util.Log().Errorf("Error processing FIND_VALUE in DHT: %v", err)
 
 			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
 			return failureMsg
@@ -189,14 +190,14 @@ func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 		log.Print("Storing key:", string(storeMsg.Key[:]))
 		if err = node.DHT.StoreToStorage(encodedKey, string(storeMsg.Value), int(storeMsg.TTL)); err != nil {
-			log.Printf("Error processing STORE in DHT: %v", err)
+			util.Log().Errorf("Error processing STORE in DHT: %v", err)
 		}
 		done <- true
 	}()
 	<-done
 
 	if err != nil {
-		log.Printf("Error processing STORE in DHT: %v", err)
+		util.Log().Errorf("Error processing STORE in DHT: %v", err)
 		failureMsg, _ := message.NewDHTFailureMessage(storeMsg.Key).Serialize()
 		return failureMsg
 	}
@@ -211,7 +212,7 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	nodeInstance = nodeInstance.(*node.BootstrapNode) //BOOTSTRAP NODE
 
 	ipPort := strings.TrimSpace(string(bootstrapMsg.Address))
-	log.Printf("Handling bootstrap request from node: %s", ipPort)
+	util.Log().Infof("Bootstrapping node (%s) handling bootstrap request from node: %s", nodeInstance.GetID(), ipPort)
 
 	if bn, ok := nodeInstance.(*node.BootstrapNode); ok {
 		//TODO: Use BootstrapNode specific methods or handle the request accordingly
@@ -239,7 +240,7 @@ func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) 
 	for _, nodeInfo := range nodes {
 		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
 		nodeInstance.AddPeer(nodeID, nodeInfo.IP, nodeInfo.Port)
-		log.Printf("Added node %s:%d to routing table.\n", nodeInfo.IP, nodeInfo.Port)
+		util.Log().Infof("Added node %s:%d to routing table.", nodeInfo.IP, nodeInfo.Port)
 	}
 
 	return nil

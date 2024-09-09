@@ -2,12 +2,12 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"net"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // StartServer starts a TLS API server for the peer node
@@ -19,12 +19,12 @@ func StartServer(address string, nodeInstance node.NodeInterface) error {
 	}
 	defer listener.Close()
 
-	fmt.Printf("API TLS server running at %s\n", address)
+	util.Log().Infof("API TLS server running at %s", address)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("Failed to accept connection: %v", err)
+			util.Log().Errorf("Failed to accept connection: %v", err)
 			continue
 		}
 
@@ -43,16 +43,16 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 		n, err := conn.Read(buf)
 		if err != nil {
 			if err.Error() != "EOF" {
-				log.Printf("Error reading from connection: %v", err)
+				util.Log().Errorf("Error reading from connection: %v", err)
 			}
 			return
 		}
 
-		log.Printf("Received %d bytes: %x", n, buf[:n])
+		util.Log().Infof("(%s) received %d bytes: %x", nodeInstance.GetID(), n, buf[:n])
 
 		msg, err := message.DeserializeMessage(buf[:n])
 		if err != nil {
-			log.Printf("Failed to deserialize message: %v", err)
+			util.Log().Errorf("Failed to deserialize message: %v", err)
 			return
 		}
 
@@ -76,15 +76,15 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 		case message.DHT_BOOTSTRAP_REPLY:
 			response = HandleBootstrapReply(msg, nodeInstance)
 		default:
-			log.Printf("Unknown message type: %d", msg.GetType())
+			util.Log().Errorf("Unknown message type: %d", msg.GetType())
 			return
 		}
 
 		if _, err := conn.Write(response); err != nil {
-			log.Printf("Failed to send response: %v", err)
+			util.Log().Errorf("Failed to send response: %v", err)
 			return
 		}
 
-		log.Printf("Sent response: %x", response)
+		util.Log().Infof("(%s) sent response: %x", nodeInstance.GetID(), response)
 	}
 }

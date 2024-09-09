@@ -8,6 +8,7 @@ import (
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // LivelinessChecker is responsible for checking the liveliness of peers in the network.
@@ -62,10 +63,10 @@ func (lc *LivelinessChecker) checkLiveliness() {
 		go func(peer *dht.KNode) {
 			err := lc.pingPeer(peer.IP, peer.ID, peer.Port)
 			if err != nil {
-				log.Printf("Peer %s did not respond, removing from known peers.\n", peer.ID)
+				util.Log().Infof("Peer %s did not respond, removing from known peers.", peer.ID)
 				lc.node.RemovePeer(peer.ID)
 			} else {
-				log.Printf("Peer %s is alive.\n", peer.ID)
+				util.Log().Infof("Peer %s is alive.", peer.ID)
 			}
 		}(peer)
 	}

@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"sort"
 	"strings"
+
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 const (
@@ -56,7 +58,7 @@ func (rt *RoutingTable) AddNode(targetID *KNode) {
 		log.Print("Bucket Index is 0")
 		return
 	}
-	log.Printf("Bucket Index: %d", bucketIndex)
+	util.Log().Infof("Bucket Index: %d", bucketIndex)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.AddNode(targetID)

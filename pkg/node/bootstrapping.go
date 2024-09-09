@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 func (n *Node) Bootstrap() error {
@@ -18,17 +19,17 @@ func (n *Node) Bootstrap() error {
         for retries < n.Config.MaxBootstrapRetries {
             success := n.tryBootstrap()
             if success {
-                fmt.Println("Successfully bootstrapped to the network.")
+                util.Log().Printf("Node (%s) successfully bootstrapped to the network.", n.ID)
                 resultChan <- nil
                 return
             }
 
-            fmt.Printf("Failed to bootstrap. Retrying in %v... (%d/%d)\n", n.Config.BootstrapRetryInterval, retries+1, n.Config.MaxBootstrapRetries)
+            util.Log().Printf("Node(%s) failed to bootstrap. Retrying in %v... (%d/%d)", n.ID, n.Config.BootstrapRetryInterval, retries+1, n.Config.MaxBootstrapRetries)
             time.Sleep(n.Config.BootstrapRetryInterval)
             retries++
         }
 
-        resultChan <- fmt.Errorf("failed to bootstrap after %d attempts", n.Config.MaxBootstrapRetries)
+        resultChan <- fmt.Errorf("Node (%s) failed to bootstrap after %d attempts", n.ID, n.Config.MaxBootstrapRetries)
     }()
 
     return <-resultChan 
@@ -41,31 +42,40 @@ func (n *Node) tryBootstrap() bool {
 	rand.Shuffle(len(bootstrapNodes), func(i, j int) { bootstrapNodes[i], bootstrapNodes[j] = bootstrapNodes[j], bootstrapNodes[i] })
 
 	for _, bootstrapNode := range bootstrapNodes {
-		fmt.Printf("Attempting to bootstrap with node %s:%d...\n", bootstrapNode.IP, bootstrapNode.Port)
+		util.Log().Printf("Node (%s) attempting to bootstrap with node %s:%d...", n.ID,bootstrapNode.IP, bootstrapNode.Port)
 
 		// Create a DHT_BOOTSTRAP message to send to the bootstrap node
 		bootstrapMessage := message.NewDHTBootstrapMessage(fmt.Sprintf("%s:%d", n.IP, n.Port))
 		serializedMessage, err := bootstrapMessage.Serialize()
 		if err != nil {
-			fmt.Printf("Failed to serialize DHT_BOOTSTRAP message: %v\n", err)
+			util.Log().Printf("Failed to serialize DHT_BOOTSTRAP message: %v", err)
 			continue
 		}
 
 		// Send the DHT_BOOTSTRAP message to the bootstrap node
 		response, err := n.Network.SendMessage(bootstrapNode.IP, bootstrapNode.Port, serializedMessage)
 		if err != nil {
-			fmt.Printf("Failed to send DHT_BOOTSTRAP message to %s:%d: %v\n", bootstrapNode.IP, bootstrapNode.Port, err)
+			util.Log().Printf("Node (%s) failed to send DHT_BOOTSTRAP message to %s:%d: %v", n.ID, bootstrapNode.IP, bootstrapNode.Port, err)
 			continue
 		}
 
 		deserializedResponse, deserializationErr := message.DeserializeMessage(response)
 		if deserializationErr != nil{
-			fmt.Printf("Error deserializing DHT_BOOTSTRAP_REPLY %v\n", deserializationErr)
+			util.Log().Printf("Error deserializing DHT_BOOTSTRAP_REPLY %v", deserializationErr)
 		}
 
 		switch response := deserializedResponse.(type) {
 			case *message.DHTBootstrapReplyMessage:
-				fmt.Print("DHT_BOOTSTRAP_REPLY SENT AT ", response.Timestamp, response.ParseNodes())
+				timestamp := response.Timestamp // Assuming this is the uint64 timestamp in seconds
+
+				// Convert to time.Time
+				parsedTime := time.Unix(int64(timestamp), 0)
+
+				// Format the time to the desired layout (RFC3339)
+				formattedTime := parsedTime.Format(time.RFC3339)
+
+				// Log the formatted time
+				util.Log().Print("DHT_BOOTSTRAP_REPLY SENT AT ", formattedTime, response.ParseNodes())
 
 				//TODO: HERE ADD THE BOOTSTRAP NODE ADDING LOGIC
 		}

@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +30,7 @@ type BootstrapNode struct {
 func LoadConfig(filename string) *Config {
 	cfg, err := ini.Load(filename)
 	if err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
+		Log().Fatalf("Failed to read config file: %v", err)
 	}
 
 	p2pAddress := cfg.Section("node").Key("p2p_address").String()
