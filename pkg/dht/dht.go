@@ -411,21 +411,22 @@ func (d *DHT) SendFindNodeMessage(targetID string, node KNode) (message.Message,
 }
 
 func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
-	rt := d.RoutingTable
-	shortlist, err := rt.GetClosestNodes(targetID)
+	shortlist, err := d.RoutingTable.GetClosestNodes(targetID)
 	if err != nil {
 		return "", nil, err
 	}
-	closestNodeDistance, _ := XOR(shortlist[0].ID, targetID)
+	if len(shortlist) == 0 {
+		return "", nil, nil
+	}
+	closestNodeDistance, err := XOR(shortlist[0].ID, targetID)
+	if err != nil {
+		return "", nil, err
+	}
 	queriedNodes := make(map[string]bool)
+	var queriedShortList []*KNode
 	failedNodes := make(map[string]*KNode)
 
 	for len(shortlist) > 0 {
-		util.Log().Info("Iterative Find, Shortlist: ")
-		for i, node := range shortlist {
-			util.Log().Infof("Node %d: %s", i, node.ID)
-		}
-
 		minQueryCount := min(len(shortlist), Alpha)
 		alphaNodes := shortlist[:minQueryCount]
 		shortlist = shortlist[minQueryCount:]
@@ -435,11 +436,12 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 				continue
 			}
 			queriedNodes[node.ID] = true
+			queriedShortList = append(queriedShortList, node)
 
 			deserializedResponse, err := d.SendFindValueMessage(targetID, *node)
 			if err != nil {
 				util.Log().Errorf("Error converting key to byte32: %v", err)
-				return "", nil, err
+				continue
 			}
 
 			//Check if the deserialized response has value or nodes
@@ -480,13 +482,23 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 			}
 		}
 
-		xorResult, _ := XOR(shortlist[0].ID, targetID)
+		if len(shortlist) == 0 {
+			break
+		}
+
+		xorResult, err := XOR(shortlist[0].ID, targetID)
+		if err != nil {
+			util.Log().Errorf("Error calculating XOR: %v", err)
+			continue
+		}
+
 		if xorResult >= closestNodeDistance { //break if the closest node is not closer than the last closest node
 			break
 		}
 	}
 
 	if len(failedNodes) > 0 {
+		util.Log().Info("Failed nodes len:", len(failedNodes))
 		for i := 0; i < RetryLimit; i++ { // Retry failed nodes
 			for _, node := range failedNodes {
 				if queriedNodes[node.ID] {
@@ -536,11 +548,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 		}
 	}
 
-	if len(failedNodes) > 0 {
-		util.Log().Info("Failed nodes:", failedNodes)
-	}
-
-	return "", shortlist[:min(len(shortlist), K)], nil
+	return "", queriedShortList[:min(len(queriedShortList), K)], nil
 }
 
 func (d *DHT) SendFindValueMessage(targetID string, node KNode) (message.Message, error) {

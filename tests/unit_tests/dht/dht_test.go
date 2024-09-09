@@ -729,6 +729,106 @@ func TestIterativeFindValue(t *testing.T) {
 	assert.Equal(t, targetValue, finalValue, "IterativeFindValue should return the correct value")
 }
 
+func TestIterativeFindValue_ReturnNodes(t *testing.T) {
+	// Set up the receiver node and its network
+	receiverPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	receiverDht.RoutingTable.NodeID = hashedNodeId
+	receiverNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    receiverPort,
+		Storage: receiverStore,
+		DHT:     receiverDht,
+	}
+	receiverNode.ID = hashedNodeId
+
+	// Set up the sender node and its network
+	senderPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	nodeId2 := "id20"
+	hashedNodeId2 := dht.EnsureKeyHashed(nodeId2)
+	senderDht.RoutingTable.NodeID = hashedNodeId2
+
+	senderNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    senderPort,
+		Storage: senderStore,
+		DHT:     senderDht,
+	}
+	senderNode.ID = hashedNodeId2
+
+	strKey := "targetKey"
+	strKeyHashed := dht.EnsureKeyHashed(strKey)
+
+	util.Log().Info("Starting intermediate nodes")
+	iNode1 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 120)
+	senderDht.RoutingTable.AddNode(GetKNodeOfNode(iNode1))
+	iNode2 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 100)
+	iNode1.DHT.RoutingTable.AddNode(GetKNodeOfNode(iNode2))
+	iNode3 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 80)
+	iNode2.DHT.RoutingTable.AddNode(GetKNodeOfNode(iNode3))
+	iNode3.DHT.RoutingTable.AddNode(GetKNodeOfNode(receiverNode))
+
+	config := &util.Config{
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
+
+	go func() {
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	go func() {
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	var receiveKeyList []string
+	//geneerate 5 hashedKeys that has distance 87 to targetKeyHashed
+	for i := 0; i < 4; i++ {
+		newKey := generateHammingDistanceString(receiverNode.ID, 87)
+		receiveKeyHashed := dht.EnsureKeyHashed(newKey)
+		receiveKeyList = append(receiveKeyList, receiveKeyHashed)
+	}
+
+	for _, key := range receiveKeyList {
+		newKNode := &dht.KNode{
+			ID:   key,
+			IP:   "127.0.0.1",
+			Port: receiverPort,
+		}
+		receiverDht.RoutingTable.AddNode(newKNode)
+
+		//err = receiverDht.StoreToStorage(key, targetValue, 3600) //Store target value to receiver
+		//assert.NoError(t, err, "Store should not return an error")
+	}
+
+	log.Print("Waiting for 2 seconds for Store and node assignments to complete")
+	time.Sleep(2 * time.Second)
+
+	log.Print("Starting iterative find value")
+	finalValue, nodes, err := senderDht.IterativeFindValue(strKeyHashed)
+
+	assert.NoError(t, err, "IterativeFindValue should not return an error")
+	util.Log().Info("Final nodes should not be empty, nodes length:", len(finalValue))
+	assert.Equal(t, "", finalValue, "IterativeFindValue should return a empty value")
+	assert.NotEqual(t, 0, len(nodes), "IterativeFindValue should return non zero list of nodes")
+}
+
 func TestIterativeFindNode(t *testing.T) {
 	// Set up the receiver node and its network
 	receiverPort, err := tests.GetFreePort()
