@@ -30,7 +30,7 @@ func TestTwoNodePingPong(t *testing.T) {
     }
     api.InitRateLimiter(config1)
     node1 := node.NewNode(config1, 86400)
-    go api.StartServer(config1.P2PAddress, node1)
+    go api.StartServer(config1.P2PAddress, "",node1)
 
     // Set up Node 2
     port2, err := tests.GetFreePort()
@@ -45,7 +45,7 @@ func TestTwoNodePingPong(t *testing.T) {
     }
 
     node2 := node.NewNode(config2, 86400)
-    go api.StartServer(config2.P2PAddress, node2)
+    go api.StartServer(config2.P2PAddress, "",node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
@@ -83,7 +83,7 @@ func TestTwoNodePut(t *testing.T) {
     api.InitRateLimiter(config1)
 
     node1 := node.NewNode(config1, 86400)
-    go api.StartServer(config1.P2PAddress, node1)
+    go api.StartServer(config1.P2PAddress, "",node1)
 
 	// Set up Node 2
 	port2, err := tests.GetFreePort()
@@ -96,7 +96,7 @@ func TestTwoNodePut(t *testing.T) {
     }
 
     node2 := node.NewNode(config2, 86400)
-    go api.StartServer(config2.P2PAddress, node2)
+    go api.StartServer(config2.P2PAddress, "",node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
@@ -137,7 +137,7 @@ func TestTwoNodeGet(t *testing.T) {
 	api.InitRateLimiter(config1)
 
 	node1 := node.NewNode(config1, 86400)
-	go api.StartServer(config1.P2PAddress, node1)
+	go api.StartServer(config1.P2PAddress, "",node1)
 
 	// Set up Node 2
 	port2, err := tests.GetFreePort()
@@ -153,7 +153,7 @@ func TestTwoNodeGet(t *testing.T) {
 	api.InitRateLimiter(config2)
 
 	node2 := node.NewNode(config2, 86400)
-	go api.StartServer(config2.P2PAddress, node2)
+	go api.StartServer(config2.P2PAddress, "",node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
@@ -214,7 +214,7 @@ func TestTwoNodePutGet(t *testing.T) {
 	api.InitRateLimiter(config1)
 
 	node1 := node.NewNode(config1, 86400)
-	go api.StartServer(config1.P2PAddress, node1)
+	go api.StartServer(config1.P2PAddress, "",node1)
 
 	// Set up Node 2
 	port2, err := tests.GetFreePort()
@@ -230,7 +230,7 @@ func TestTwoNodePutGet(t *testing.T) {
 	api.InitRateLimiter(config2)
 
 	node2 := node.NewNode(config2, 86400)
-	go api.StartServer(config2.P2PAddress, node2)
+	go api.StartServer(config2.P2PAddress, "",node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 

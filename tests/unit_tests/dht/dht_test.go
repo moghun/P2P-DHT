@@ -106,14 +106,14 @@ func TestSendStoreMessage(t *testing.T) {
 	api.InitRateLimiter(config)
 
 	go func() {
-		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), "",receiverNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
 	time.Sleep(2 * time.Second)
 
 	go func() {
-		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), "",senderNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
@@ -571,12 +571,12 @@ func TestPut(t *testing.T) {
 	api.InitRateLimiter(config)
 
 	go func() {
-		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), "",receiverNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
 	go func() {
-		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), "",senderNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
@@ -684,12 +684,12 @@ func TestIterativeFindValue(t *testing.T) {
 	api.InitRateLimiter(config)
 
 	go func() {
-		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), "",receiverNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
 	go func() {
-		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), "",senderNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
@@ -786,12 +786,12 @@ func TestIterativeFindValue_ReturnNodes(t *testing.T) {
 	api.InitRateLimiter(config)
 
 	go func() {
-		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), "",receiverNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
 	go func() {
-		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), "",senderNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
@@ -888,12 +888,12 @@ func TestIterativeFindNode(t *testing.T) {
 	api.InitRateLimiter(config)
 
 	go func() {
-		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), "",receiverNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
 	go func() {
-		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), "",senderNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
@@ -974,7 +974,7 @@ func CreateAndStartNode(id string) *node.Node {
 	intermediateNode1.ID = intermediateHashedNodeId1
 
 	go func() {
-		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), intermediateNode1)
+		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), "",intermediateNode1)
 	}()
 
 	time.Sleep(2 * time.Second)
@@ -1068,7 +1068,7 @@ func CreateAndStartNodeWithGivenDistance(originID string, distance int) *node.No
 	intermediateNode1.ID = intermediateHashedNodeId1
 
 	go func() {
-		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), intermediateNode1)
+		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), "",intermediateNode1)
 	}()
 
 	time.Sleep(2 * time.Second)

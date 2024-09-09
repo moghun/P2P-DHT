@@ -43,7 +43,7 @@ func main() {
 	// Start the API server to handle bootstrap requests from other nodes
 	go func() {
 		api.InitRateLimiter(config)
-		err := api.StartServer(config.P2PAddress, bootstrapNodeInstance)
+		err := api.StartServer(config.P2PAddress, config.APIAddress, bootstrapNodeInstance)
 		if err != nil {
 			util.Log().Fatalf("Failed to start API server: %v", err)
 		}

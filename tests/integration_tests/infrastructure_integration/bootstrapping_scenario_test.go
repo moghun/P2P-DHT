@@ -30,7 +30,7 @@ func TestBootstrapScenario(t *testing.T) {
 	api.InitRateLimiter(bootstrapConfig)
 	bootstrapNode := node.NewBootstrapNode(bootstrapConfig, 86400)
 	util.Log().Printf("***  Node-bootstrap (%s) running at: %s  ***", bootstrapNode.ID, bootstrapConfig.P2PAddress)
-	go api.StartServer(bootstrapConfig.P2PAddress, bootstrapNode)
+	go api.StartServer(bootstrapConfig.P2PAddress, "", bootstrapNode)
 
 	time.Sleep(1 * time.Second) // Ensure the bootstrap_node is up
 
@@ -53,7 +53,7 @@ func TestBootstrapScenario(t *testing.T) {
 	api.InitRateLimiter(peer1Config)
 	peer1Node := node.NewNode(peer1Config, 86400)
 	util.Log().Printf("***  Node-1 (%s) running at: %s  ***", peer1Node.ID, peer1Config.P2PAddress)
-	go api.StartServer(peer1Config.P2PAddress, peer1Node)
+	go api.StartServer(peer1Config.P2PAddress, "", peer1Node)
 
 	// Bootstrap peer1 with the bootstrap_node
 	err = peer1Node.Bootstrap()
@@ -81,7 +81,7 @@ func TestBootstrapScenario(t *testing.T) {
 	api.InitRateLimiter(peer2Config)
 	peer2Node := node.NewNode(peer2Config, 86400)
 	util.Log().Printf("***  Node-2 (%s) running at: %s  ***", peer2Node.ID, peer2Config.P2PAddress)
-	go api.StartServer(peer2Config.P2PAddress, peer2Node)
+	go api.StartServer(peer2Config.P2PAddress, "",peer2Node)
 
 	// Bootstrap peer2 with the bootstrap_node
 	err = peer2Node.Bootstrap()

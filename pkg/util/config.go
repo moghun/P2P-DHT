@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Address          string
 	P2PAddress       string
+	APIAddress       string
 	BootstrapNodes   []BootstrapNode
 	EncryptionKey    []byte
 	TTL              int // TTL in seconds
@@ -34,6 +35,7 @@ func LoadConfig(filename string) *Config {
 	}
 
 	p2pAddress := cfg.Section("node").Key("p2p_address").String()
+	apiAddress := cfg.Section("node").Key("api_address").String()
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
 	ttl, _ := cfg.Section("node").Key("cleanup_interval").Int()
 
@@ -51,6 +53,7 @@ func LoadConfig(filename string) *Config {
 
 	return &Config{
 		P2PAddress:            p2pAddress,
+		APIAddress:			   apiAddress,
 		EncryptionKey:         encryptionKey,
 		TTL:                   ttl,
 		Difficulty:            cfg.Section("security").Key("difficulty").MustInt(4),

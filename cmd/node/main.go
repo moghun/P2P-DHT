@@ -46,7 +46,7 @@ func main() {
 	// Start the API server for the node
 	go func() {
 		api.InitRateLimiter(config)
-		err := api.StartServer(config.P2PAddress, nodeInstance)
+		err := api.StartServer(config.P2PAddress, config.APIAddress, nodeInstance)
 		if err != nil {
 			util.Log().Fatalf("Failed to start API server: %v", err)
 		}

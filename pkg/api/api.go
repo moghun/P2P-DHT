@@ -10,28 +10,57 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
-// StartServer starts a TLS API server for the peer node
-func StartServer(address string, nodeInstance node.NodeInterface) error {
-	// Start a TLS listener instead of a regular TCP listener
-	listener, err := security.StartTLSListener(nodeInstance.GetID(), address)
+func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterface) error {
+	// Start a TLS listener
+	tlsListener, err := security.StartTLSListener(nodeInstance.GetID(), tlsAddress)
 	if err != nil {
 		return fmt.Errorf("failed to start TLS server: %v", err)
 	}
-	defer listener.Close()
+	defer tlsListener.Close()
 
-	util.Log().Infof("API TLS server running at %s", address)
+	util.Log().Infof("API TLS server running at %s", tlsAddress)
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			util.Log().Errorf("Failed to accept connection: %v", err)
-			continue
+	// Start a separate goroutine to handle TLS connections
+	go func() {
+		for {
+			conn, err := tlsListener.Accept()
+			if err != nil {
+				util.Log().Errorf("Failed to accept TLS connection: %v", err)
+				continue
+			}
+			go WithMiddleware(func(c net.Conn) {
+				HandleConnection(c, nodeInstance)  // true means TLS connection
+			})(conn)
 		}
+	}()
 
-		go WithMiddleware(func(c net.Conn) {
-			HandleConnection(c, nodeInstance)
-		})(conn)
+	// Conditionally start non-TLS listener if nonTLSAddress is provided
+	if nonTLSAddress != "" {
+		nonTLSListener, err := net.Listen("tcp", nonTLSAddress)
+		if err != nil {
+			return fmt.Errorf("failed to start non-TLS server on %s: %v", nonTLSAddress, err)
+		}
+		defer nonTLSListener.Close()
+
+		util.Log().Infof("Non-TLS server running at %s", nonTLSAddress)
+
+		// Handle non-TLS connections in the main routine
+		go func() {
+			for {
+				conn, err := nonTLSListener.Accept()
+				if err != nil {
+					util.Log().Errorf("Failed to accept non-TLS connection: %v", err)
+					continue
+				}
+				go WithMiddleware(func(c net.Conn) {
+					HandleConnection(c, nodeInstance)  // false means non-TLS connection
+				})(conn)
+			}
+		}()
 	}
+
+	// Block forever (or until an error occurs)
+	select {}
 }
 
 // HandleConnection processes incoming TLS connections and dispatches messages

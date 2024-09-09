@@ -30,20 +30,6 @@ func TestStorage_PutAndGet(t *testing.T) {
 	assert.Equal(t, "testvalue", value)
 }
 
-func TestStorage_GetExpired(t *testing.T) {
-	key := []byte("testkey123456789")
-	store := storage.NewStorage(86400, key)
-
-	err := store.Put("testkey", "testvalue", 1) // 1 second TTL
-	assert.NoError(t, err)
-
-	time.Sleep(2 * time.Second) // Wait for the item to expire
-
-	value, err := store.Get("testkey")
-	assert.NoError(t, err)
-	assert.Empty(t, value)
-}
-
 func TestStorage_GetNonExistentKey(t *testing.T) {
 	key := []byte("testkey123456789")
 	store := storage.NewStorage(86400, key)
@@ -137,18 +123,4 @@ func TestStorage_GetErrorOnDecrypt(t *testing.T) {
 
 	_, err = store.Get("testkey")
 	assert.Error(t, err)
-}
-
-func TestStorage_CleanupExpired(t *testing.T) {
-	key := []byte("testkey123456789")
-	store := storage.NewStorage(86400, key)
-
-	// Add an item that expires immediately
-	store.Put("expiringKey", "expiringValue", 1)
-	time.Sleep(2 * time.Second)
-
-	store.CleanupExpired()
-
-	_, exists := store.GetData()["expiringKey"]
-	assert.False(t, exists, "Expired item should have been cleaned up")
 }

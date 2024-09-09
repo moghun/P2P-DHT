@@ -31,7 +31,7 @@ func TestRateLimiterIntegration(t *testing.T) {
 	realNode := node.NewNode(config, 86400)
 
 	go func() {
-		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), realNode)
+		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), "",realNode)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 

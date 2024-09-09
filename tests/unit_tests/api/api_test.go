@@ -43,7 +43,7 @@ func TestStartServer(t *testing.T) {
 
 	go func() {
 		api.InitRateLimiter(config)
-		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), &mockNode.Node)
+		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), "", &mockNode.Node)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
 
