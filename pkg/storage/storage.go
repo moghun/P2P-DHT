@@ -42,6 +42,11 @@ func (s *Storage) Put(key, value string, ttl int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	util.Log().Printf("TTL: %d for the key (%s)", ttl, key)
+
+	if (ttl < int(s.cleanup_interval)){
+		ttl = int(s.cleanup_interval)
+	}
 	encryptedValue, err := util.Encrypt([]byte(value), s.key)
 	if err != nil {
 		util.Log().Errorf("Error encrypting value: %v", err)
