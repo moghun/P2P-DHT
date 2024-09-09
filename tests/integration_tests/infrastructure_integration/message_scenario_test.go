@@ -31,7 +31,7 @@ func TestPingPongIntegration(t *testing.T) {
 	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
-	time.Sleep(1 * time.Second) // Give the server time to start
+	time.Sleep(1 * time.Second)
 
 	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
