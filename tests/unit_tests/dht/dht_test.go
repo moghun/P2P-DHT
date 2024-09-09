@@ -834,10 +834,11 @@ func TestIterativeFindNode(t *testing.T) {
 	receiverPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
-	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
-	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), hashedNodeId, "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	receiverDht.RoutingTable.NodeID = hashedNodeId
 	receiverNode := &node.Node{
 		IP:      "127.0.0.1",
@@ -851,10 +852,11 @@ func TestIterativeFindNode(t *testing.T) {
 	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
-	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
-	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+
 	nodeId2 := "id20"
 	hashedNodeId2 := dht.EnsureKeyHashed(nodeId2)
+	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), hashedNodeId2, "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	senderDht.RoutingTable.NodeID = hashedNodeId2
 
 	senderNode := &node.Node{
