@@ -3,7 +3,9 @@ package api
 import (
 	"fmt"
 	"net"
+	"strconv"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
@@ -74,10 +76,21 @@ func HandlePeerConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 		return
 	}
 
-	peerNodeID := string(idBuf) // The peer's node ID (could be padded with zeros)
+	peerNodeID := dht.EnsureKeyHashed(string(idBuf)) // The peer's node ID (could be padded with zeros)
 	peerAddr := conn.RemoteAddr().String() // Get the IP and Port of the peer connection
 
 	util.Log().Infof("Connection established from peer with ID: %s at %s", peerNodeID, peerAddr)
+    ip, port, err := net.SplitHostPort(peerAddr)
+    if err != nil {
+        util.Log().Fatal(err)
+    }
+    portInt, err := strconv.Atoi(port)
+    if err != nil {
+        util.Log().Fatalf("Error converting port to int: %v", err)
+    }
+
+    util.Log().Printf("IP: %s, Port: %d\n", ip, portInt)
+	nodeInstance.AddPeer(peerNodeID, ip, portInt)
 
 	// Now handle the actual message
 	for {

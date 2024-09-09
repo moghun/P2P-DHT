@@ -15,11 +15,12 @@ type MockNode struct {
 	mock.Mock
 }
 
-func NewMockNode(ip string, port int) *MockNode {
+func NewMockNode(id, ip string, port int) *MockNode {
 	storage := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	dht := dht.NewDHT(86400, []byte("1234567890abcdef"),"1","127.0.0.1",8080)
 	return &MockNode{
 		Node: node.Node{
+			ID:		 id,
 			IP:      ip,
 			Port:    port,
 			Storage: storage,
