@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
@@ -119,6 +120,28 @@ func TestDHTFailureMessage(t *testing.T) {
 	assert.IsType(t, &message.DHTFailureMessage{}, deserializedMsg)
 
 	assert.Equal(t, msg.Key, deserializedMsg.(*message.DHTFailureMessage).Key)
+}
+
+func TestDHTStoreMessage(t *testing.T) {
+
+	key := "testkey"
+	hashKey := dht.EnsureKeyHashed(key)
+	value := "testvalue"
+
+	byte32Key, err := message.HexStringToByte32(hashKey)
+	assert.NoError(t, err)
+	msg := message.NewDHTStoreMessage(10000, 2, byte32Key, []byte(value))
+
+	serialized, err := msg.Serialize()
+	assert.NoError(t, err)
+
+	deserializedMsg, err := message.DeserializeMessage(serialized)
+	//deserializedMsg, err := msg.Deserialize(serialized)
+	assert.NoError(t, err)
+	assert.IsType(t, &message.DHTStoreMessage{}, deserializedMsg)
+
+	assert.Equal(t, msg.Key, deserializedMsg.(*message.DHTStoreMessage).Key)
+	assert.Equal(t, msg.Value, deserializedMsg.(*message.DHTStoreMessage).Value)
 }
 
 func TestDHTBootstrapMessage(t *testing.T) {

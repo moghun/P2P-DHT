@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
@@ -17,12 +16,15 @@ func TestBootstrapSuccess(t *testing.T) {
 
 	config := &util.Config{
 		P2PAddress: fmt.Sprintf("127.0.0.1:%d", port),
+		Difficulty: 4,
+		BootstrapRetryInterval: 5,
+		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: port + 1}, // Adjust port for uniqueness
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 	nodeInstance.Network = &MockNetwork{ShouldFail: false}
 
 	err = nodeInstance.Bootstrap()
@@ -35,12 +37,15 @@ func TestBootstrapFailure(t *testing.T) {
 
 	config := &util.Config{
 		P2PAddress: fmt.Sprintf("127.0.0.1:%d", port),
+		Difficulty: 4,
+		BootstrapRetryInterval: 5,
+		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: port + 1}, // Adjust port for uniqueness
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 	nodeInstance.Network = &MockNetwork{ShouldFail: true}
 
 	err = nodeInstance.Bootstrap()

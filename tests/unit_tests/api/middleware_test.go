@@ -6,9 +6,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 func TestWithMiddleware(t *testing.T) {
+	// Mock the config with rate limiter settings
+	mockConfig := &util.Config{
+		RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+	}
+	api.InitRateLimiter(mockConfig)
+
 	// Set up a mock connection with specific local and remote addresses
 	localAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12345}
 	remoteAddr := &net.TCPAddr{IP: net.ParseIP("192.168.1.1"), Port: 54321}
@@ -31,10 +39,17 @@ func TestWithMiddleware(t *testing.T) {
 	wrappedHandler(conn)
 
 	assert.True(t, handlerCalled, "Expected the handler to be called")
-
 }
 
 func TestWithMiddleware_ConnectionClosed(t *testing.T) {
+	// Mock the config with rate limiter settings
+	mockConfig := &util.Config{
+		RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+	}
+	api.InitRateLimiter(mockConfig)
+
+	// Set up a mock connection
 	localAddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12345}
 	remoteAddr := &net.TCPAddr{IP: net.ParseIP("192.168.1.1"), Port: 54321}
 	conn := &MockConnWithAddr{

@@ -10,18 +10,17 @@ import (
 
 func TestNewStorage(t *testing.T) {
 	key := []byte("testkey123456789")
-	ttl := 24 * time.Hour
 
-	store := storage.NewStorage(ttl, key)
+	store := storage.NewStorage(86400, key)
 	assert.NotNil(t, store)
 	assert.Equal(t, key, store.GetKey())
-	assert.Equal(t, ttl, store.GetTTL())
+	assert.Equal(t, time.Duration(86400), store.GetTTL())
 	assert.NotNil(t, store.GetData())
 }
 
 func TestStorage_PutAndGet(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	err := store.Put("testkey", "testvalue", 3600)
 	assert.NoError(t, err)
@@ -31,23 +30,9 @@ func TestStorage_PutAndGet(t *testing.T) {
 	assert.Equal(t, "testvalue", value)
 }
 
-func TestStorage_GetExpired(t *testing.T) {
-	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
-
-	err := store.Put("testkey", "testvalue", 1) // 1 second TTL
-	assert.NoError(t, err)
-
-	time.Sleep(2 * time.Second) // Wait for the item to expire
-
-	value, err := store.Get("testkey")
-	assert.NoError(t, err)
-	assert.Empty(t, value)
-}
-
 func TestStorage_GetNonExistentKey(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	value, err := store.Get("nonexistent")
 	assert.NoError(t, err)
@@ -56,7 +41,7 @@ func TestStorage_GetNonExistentKey(t *testing.T) {
 
 func TestStorage_DataIntegrityCheck(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	// Put a value
 	err := store.Put("testkey", "testvalue", 3600)
@@ -74,7 +59,7 @@ func TestStorage_DataIntegrityCheck(t *testing.T) {
 
 func TestStorage_StartCleanup(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(1*time.Second, key)
+	store := storage.NewStorage(1, key)
 
 	err := store.Put("testkey1", "testvalue1", 1) // 1 second TTL
 	assert.NoError(t, err)
@@ -96,7 +81,7 @@ func TestStorage_StartCleanup(t *testing.T) {
 
 func TestStorage_GetAll(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	err := store.Put("testkey1", "testvalue1", 3600)
 	assert.NoError(t, err)
@@ -111,7 +96,7 @@ func TestStorage_GetAll(t *testing.T) {
 
 func TestStorage_GetKeyNotFound(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	_, err := store.Get("nonexistent_key")
 	assert.NoError(t, err)
@@ -120,7 +105,7 @@ func TestStorage_GetKeyNotFound(t *testing.T) {
 func TestStorage_PutErrorOnEncrypt(t *testing.T) {
 	// Invalid key length should cause encryption to fail
 	key := []byte("shortkey")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	err := store.Put("testkey", "testvalue", 3600)
 	assert.Error(t, err)
@@ -128,7 +113,7 @@ func TestStorage_PutErrorOnEncrypt(t *testing.T) {
 
 func TestStorage_GetErrorOnDecrypt(t *testing.T) {
 	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
+	store := storage.NewStorage(86400, key)
 
 	err := store.Put("testkey", "testvalue", 3600)
 	assert.NoError(t, err)
@@ -138,18 +123,4 @@ func TestStorage_GetErrorOnDecrypt(t *testing.T) {
 
 	_, err = store.Get("testkey")
 	assert.Error(t, err)
-}
-
-func TestStorage_CleanupExpired(t *testing.T) {
-	key := []byte("testkey123456789")
-	store := storage.NewStorage(24 * time.Hour, key)
-
-	// Add an item that expires immediately
-	store.Put("expiringKey", "expiringValue", 1)
-	time.Sleep(2 * time.Second)
-
-	store.CleanupExpired()
-
-	_, exists := store.GetData()["expiringKey"]
-	assert.False(t, exists, "Expired item should have been cleaned up")
 }

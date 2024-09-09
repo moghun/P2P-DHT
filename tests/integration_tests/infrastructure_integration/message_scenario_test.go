@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
@@ -18,15 +19,19 @@ func TestPingPongIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
-	go api.StartServer(config.P2PAddress, mockNode)
+	mockNode := node.NewNode(config, 86400)
+	go api.StartServer(config.P2PAddress, "", mockNode)
 
-	time.Sleep(1 * time.Second) // Give the server time to start
+	time.Sleep(1 * time.Second)
 
 	conn := setupTLSConnection(t, config.P2PAddress)
 	defer conn.Close()
@@ -55,13 +60,17 @@ func TestPutMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
-	go api.StartServer(config.P2PAddress, mockNode)
+	mockNode := node.NewNode(config, 86400)
+	go api.StartServer(config.P2PAddress, "", mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -97,13 +106,17 @@ func TestGetMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
-	go api.StartServer(config.P2PAddress, mockNode)
+	mockNode := node.NewNode(config, 86400)
+	go api.StartServer(config.P2PAddress, "", mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -149,13 +162,17 @@ func TestPutGetIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
-	go api.StartServer(config.P2PAddress, mockNode)
+	mockNode := node.NewNode(config, 86400)
+	go api.StartServer(config.P2PAddress, "",mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -163,10 +180,13 @@ func TestPutGetIntegration(t *testing.T) {
 	defer conn.Close()
 
 	// 1. Send DHT_PUT message
-	var key [32]byte
-	copy(key[:], []byte("testkey"))
+	key := "testkey"
+	hashedKey := dht.EnsureKeyHashed(key)
 	value := []byte("testvalue")
-	putMsg := message.NewDHTPutMessage(10000, 2, key, value)
+
+	byte32Key, err := message.HexStringToByte32(hashedKey)
+	assert.NoError(t, err)
+	putMsg := message.NewDHTPutMessage(10000, 2, byte32Key, value)
 	serializedPutMsg, err := putMsg.Serialize()
 	assert.NoError(t, err)
 
@@ -185,11 +205,11 @@ func TestPutGetIntegration(t *testing.T) {
 	// Since the response is a DHTSuccessMessage, cast it
 	successMsg, ok := response.(*message.DHTSuccessMessage)
 	assert.True(t, ok)
-	assert.Equal(t, key, successMsg.Key)
+	assert.Equal(t, hashedKey, message.Byte32ToHexEncode(successMsg.Key))
 	assert.Equal(t, value, successMsg.Value)
 
 	// 3. Send DHT_GET message
-	getMsg := message.NewDHTGetMessage(key)
+	getMsg := message.NewDHTGetMessage(byte32Key)
 	serializedGetMsg, err := getMsg.Serialize()
 	assert.NoError(t, err)
 
@@ -207,21 +227,28 @@ func TestPutGetIntegration(t *testing.T) {
 	// Since the response is a DHTSuccessMessage, cast it
 	successMsg, ok = response.(*message.DHTSuccessMessage)
 	assert.True(t, ok)
-	assert.Equal(t, key, successMsg.Key)
-	assert.Equal(t, value, successMsg.Value)
+	assert.Equal(t, hashedKey, message.Byte32ToHexEncode(successMsg.Key))
+
+	unpackedSuccessMsg, err := dht.Deserialize(successMsg.Value)
+	assert.NoError(t, err)
+	assert.Equal(t, value, []byte(unpackedSuccessMsg.Value))
 }
 
 func TestGetNonExistentKeyIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
-	go api.StartServer(config.P2PAddress, mockNode)
+	mockNode := node.NewNode(config, 86400)
+	go api.StartServer(config.P2PAddress, "",mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -252,7 +279,6 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, key, failureMsg.Key)
 }
-
 
 func setupTLSConnection(t *testing.T, address string) *tls.Conn {
 	// Set up the TLS config for the client

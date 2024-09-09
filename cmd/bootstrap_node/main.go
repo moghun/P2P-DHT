@@ -2,49 +2,47 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
+const relativeConfigPath = "config.ini"
+
 func main() {
-	// Parse command-line parameters
-	configPath := flag.String("c", "config.ini", "path to configuration file")
+	// Parse command-line parameters for config path
+	configPath := flag.String("c", "", "path to configuration file")
 	flag.Parse()
+
+	// If config path is not provided, fallback to relative config path
+	if *configPath == "" {
+		if _, err := os.Stat(relativeConfigPath); err == nil {
+			*configPath = relativeConfigPath
+		} else {
+			util.Log().Fatal("No valid config file found. Please provide a valid config path.")
+		}
+	}
 
 	// Load configuration
 	config := util.LoadConfig(*configPath)
 
 	// Set up logging
 	util.SetupLogging("bootstrap_node.log")
-
+	
 	// Create a new BootstrapNode instance
-	bootstrapNodeInstance := node.NewBootstrapNode(config, 720*time.Hour)
-
-	// Hardcoded for now TODO or not TODO?
-	bootstrapNodeInstance.AddKnownPeer("nodeID1", "192.168.1.1", 8081)
-	bootstrapNodeInstance.AddKnownPeer("nodeID2", "192.168.1.2", 8082)
+	bootstrapNodeInstance := node.NewBootstrapNode(config, 86400)
+	util.Log().Infof("Node (%s) is starting...", bootstrapNodeInstance.ID)
 
 	// Start the API server to handle bootstrap requests from other nodes
 	go func() {
-		err := api.StartServer(config.P2PAddress, &bootstrapNodeInstance.Node)
+		api.InitRateLimiter(config)
+		err := api.StartServer(config.P2PAddress, config.APIAddress, bootstrapNodeInstance)
 		if err != nil {
-			log.Fatalf("Failed to start API server: %v", err)
-		}
-	}()
-
-	// Start listening for incoming messages from other nodes
-	go func() {
-		err := bootstrapNodeInstance.Network.StartListening()
-		if err != nil {
-			log.Fatalf("Failed to start node listening: %v", err)
+			util.Log().Fatalf("Failed to start API server: %v", err)
 		}
 	}()
 
@@ -53,7 +51,11 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
-	fmt.Printf("Received signal %s, shutting down...\n", sig)
+	util.Log().Infof("Received signal %s, shutting down...", sig)
 
-	// Graceful shutdown logic can be added here if needed
+	// Gracefully shut down the BootstrapNode
+	bootstrapNodeInstance.Shutdown()
+
+	// Confirm shutdown
+	util.Log().Info("BootstrapNode shut down successfully.")
 }

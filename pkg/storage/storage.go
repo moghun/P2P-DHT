@@ -12,10 +12,12 @@ import (
 )
 
 type Storage struct {
-	data map[string]*storageItem
-	mu   sync.Mutex
-	ttl  time.Duration
-	key  []byte // Encryption key
+	data         map[string]*storageItem
+	mu           sync.Mutex
+	cleanup_interval  time.Duration
+	key          []byte // Encryption key
+	cleanupTicker *time.Ticker // Holds the reference to the ticker
+	stopCleanup   chan bool // Channel to signal stopping the cleanup routine
 }
 
 type storageItem struct {
@@ -24,32 +26,38 @@ type storageItem struct {
 	hash   string
 }
 
-func NewStorage(ttl time.Duration, key []byte) *Storage {
-    storage := &Storage{
-        data: make(map[string]*storageItem),
-        ttl:  ttl,
-        key:  key,
-    }
+func NewStorage(cleanup_interval time.Duration, key []byte) *Storage {
+	storage := &Storage{
+		data:        make(map[string]*storageItem),
+		cleanup_interval:         cleanup_interval,
+		key:         key,
+		stopCleanup: make(chan bool),
+	}
 
-    storage.StartCleanup(ttl)
-
-    return storage
+	storage.StartCleanup(cleanup_interval * time.Second)
+	return storage
 }
+
 func (s *Storage) Put(key, value string, ttl int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	util.Log().Printf("TTL: %d for the key (%s)", ttl, key)
+
+	if (ttl < int(s.cleanup_interval)){
+		ttl = int(s.cleanup_interval)
+	}
 	encryptedValue, err := util.Encrypt([]byte(value), s.key)
 	if err != nil {
-		log.Printf("Error encrypting value: %v", err)
+		util.Log().Errorf("Error encrypting value: %v", err)
 		return err
 	}
-	log.Printf("Encrypted value: %s", encryptedValue)
+	util.Log().Infof("Encrypted value: %s", encryptedValue)
 
 	hasher := sha1.New()
 	hasher.Write([]byte(encryptedValue))
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	log.Printf("SHA1 hash of encrypted value: %s", hash)
+	util.Log().Infof("SHA1 hash of encrypted value: %s", hash)
 
 	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.data[key] = &storageItem{
@@ -57,7 +65,7 @@ func (s *Storage) Put(key, value string, ttl int) error {
 		expiry: expiry,
 		hash:   hash,
 	}
-	log.Printf("Stored item: key=%s, value=%s, expiry=%s, hash=%s", key, encryptedValue, expiry.String(), hash)
+	util.Log().Infof("Stored item: key=%s, value=%s, expiry=%s, hash=%s", key, encryptedValue, expiry.String(), hash)
 	return nil
 }
 
@@ -65,16 +73,16 @@ func (s *Storage) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.Printf("Attempting to retrieve key: %x", key)
+	util.Log().Infof("Attempting to retrieve key: %x", key)
 
 	item, exists := s.data[key]
 	if !exists {
-		log.Printf("Key not found: %x", key)
+		util.Log().Infof("Key not found: %x", key)
 		return "", nil
 	}
 
 	if time.Now().After(item.expiry) {
-		log.Printf("Key expired: %x", key)
+		util.Log().Infof("Key expired: %x", key)
 		delete(s.data, key)
 		return "", nil
 	}
@@ -83,17 +91,17 @@ func (s *Storage) Get(key string) (string, error) {
 	hasher.Write([]byte(item.value))
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	if hash != item.hash {
-		log.Printf("Data integrity check failed for key: %x", key)
+		util.Log().Infof("Data integrity check failed for key: %x", key)
 		return "", errors.New("data integrity check failed")
 	}
 
 	decryptedValue, err := util.Decrypt(item.value, s.key)
 	if err != nil {
-		log.Printf("Error decrypting value: %v", err)
+		util.Log().Errorf("Error decrypting value: %v", err)
 		return "", err
 	}
 
-	log.Printf("Decrypted value for key %x: %s", key, decryptedValue)
+	util.Log().Infof("Decrypted value for key %x: %s", key, decryptedValue)
 	return string(decryptedValue), nil
 }
 func (s *Storage) CleanupExpired() {
@@ -102,20 +110,25 @@ func (s *Storage) CleanupExpired() {
 
 	for key, item := range s.data {
 		if time.Now().After(item.expiry) {
-			log.Printf("Cleaning up expired item with key: %s", key)
+			util.Log().Infof("Cleaning up expired item with key: %s", key)
 			delete(s.data, key)
 		}
 	}
 }
 
 func (s *Storage) StartCleanup(interval time.Duration) {
-    ticker := time.NewTicker(interval)
-    go func() {
-        for {
-            <-ticker.C
-            s.CleanupExpired()
-        }
-    }()
+	s.cleanupTicker = time.NewTicker(interval)
+	go func() {
+		for {
+			select {
+			case <-s.cleanupTicker.C:
+				s.CleanupExpired()
+			case <-s.stopCleanup:
+				s.cleanupTicker.Stop() // Stop the ticker
+				return
+			}
+		}
+	}()
 }
 
 // GetAll returns all key-value pairs from the storage, decrypting the values before returning
@@ -127,13 +140,20 @@ func (s *Storage) GetAll() map[string]string {
 	for key, item := range s.data {
 		decryptedValue, err := util.Decrypt(item.value, s.key)
 		if err != nil {
-			log.Printf("Error decrypting value for key %s: %v", key, err)
+			util.Log().Errorf("Error decrypting value for key %s: %v", key, err)
 			continue
 		}
 		allData[key] = string(decryptedValue)
 	}
 	return allData
 }
+
+// StopCleanup stops the cleanup ticker and terminates the cleanup routine.
+func (s *Storage) StopCleanup() {
+	s.stopCleanup <- true
+	log.Println("Storage cleanup routine stopped.")
+}
+
 
 /* FOR TEST PURPOSES*/
 // Getter for the Data field
@@ -148,7 +168,7 @@ func (s *storageItem) SetValue(setValue string){
 
 // Getter for the TTL field
 func (s *Storage) GetTTL() time.Duration {
-	return s.ttl
+	return s.cleanup_interval
 }
 
 // Getter for the Key field

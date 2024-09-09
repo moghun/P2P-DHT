@@ -2,21 +2,25 @@ package util
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
 
 type Config struct {
-	Address        string
-	P2PAddress     string
-	APIAddress     string
-	BootstrapNodes []BootstrapNode
-	EncryptionKey  []byte
-	TTL            int // TTL in microseconds
-
+	Address          string
+	P2PAddress       string
+	APIAddress       string
+	BootstrapNodes   []BootstrapNode
+	EncryptionKey    []byte
+	TTL              int // TTL in seconds
+	RateLimiterRate  int // Requests per second
+	RateLimiterBurst int // Burst size
+	Difficulty       int // PoW Difficulty
+	BootstrapRetryInterval time.Duration // Retry interval for bootstrap in seconds
+	MaxBootstrapRetries    int           // Max number of bootstrap retries
 }
 
 type BootstrapNode struct {
@@ -24,27 +28,40 @@ type BootstrapNode struct {
 	Port int
 }
 
-// LoadConfig reads configuration from the specified file and returns a Config object.
 func LoadConfig(filename string) *Config {
 	cfg, err := ini.Load(filename)
 	if err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
+		Log().Fatalf("Failed to read config file: %v", err)
 	}
 
 	p2pAddress := cfg.Section("node").Key("p2p_address").String()
 	apiAddress := cfg.Section("node").Key("api_address").String()
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
-	ttl, _ := cfg.Section("node").Key("ttl").Int()
+	ttl, _ := cfg.Section("node").Key("cleanup_interval").Int()
+
+	bootstrapRetryInterval, _ := cfg.Section("node").Key("bootstrap_retry_interval").Int()
+	maxBootstrapRetries, _ := cfg.Section("node").Key("max_bootstrap_retries").Int()
+
+	// Load bootstrap retry settings
+	rateLimiterRate, _ := cfg.Section("rate_limiter").Key("requests_per_second").Int()
+	rateLimiterBurst, _ := cfg.Section("rate_limiter").Key("burst_size").Int()
+
+	// Convert interval to time.Duration
+	retryInterval := time.Duration(bootstrapRetryInterval) * time.Second
 
 	bootstrapNodes := LoadBootstrapNodes(cfg)
 
 	return &Config{
-		Address:        cfg.Section("").Key("address").String(),
-		P2PAddress:     p2pAddress,
-		APIAddress:     apiAddress,
-		BootstrapNodes: bootstrapNodes,
-		EncryptionKey:  encryptionKey,
-		TTL:	ttl,
+		P2PAddress:            p2pAddress,
+		APIAddress:			   apiAddress,
+		EncryptionKey:         encryptionKey,
+		TTL:                   ttl,
+		Difficulty:            cfg.Section("security").Key("difficulty").MustInt(4),
+		RateLimiterRate:	rateLimiterRate,
+		RateLimiterBurst:	rateLimiterBurst,
+		BootstrapRetryInterval: retryInterval,
+		MaxBootstrapRetries:    maxBootstrapRetries,
+		BootstrapNodes:        bootstrapNodes,
 	}
 }
 

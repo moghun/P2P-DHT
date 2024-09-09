@@ -1,122 +1,217 @@
 package dht
 
 import (
-	"bytes"
-	"crypto/sha1"
-	"encoding/binary"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"log"
+	"regexp"
 	"sync"
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // DHT represents a Distributed Hash Table.
 type DHT struct {
 	RoutingTable *RoutingTable
-	Storage      *DHTStorage
+	Storage      *storage.Storage
 	Network      *message.Network
-}
-
-type SuccessMessageResponse struct {
-	Value string
-	Nodes []*KNode
-}
-
-// Serialize SuccessMessageResponse to byte array
-func (smr *SuccessMessageResponse) Serialize() []byte {
-	var buf bytes.Buffer
-
-	// Serialize Value field with null-termination
-	buf.WriteString(smr.Value)
-	buf.WriteByte(0) // Null terminator for Value
-
-	// Serialize each node
-	for _, node := range smr.Nodes {
-		buf.WriteString(node.ID)
-		buf.WriteByte(0) // Null terminator for ID
-
-		buf.WriteString(node.IP)
-		buf.WriteByte(0) // Null terminator for IP
-
-		// Serialize Port as 4 bytes (BigEndian format)
-		portBytes := make([]byte, 4)
-		binary.BigEndian.PutUint32(portBytes, uint32(node.Port))
-		buf.Write(portBytes)
-	}
-
-	return buf.Bytes()
-}
-
-// Deserialize byte array back to SuccessMessageResponse
-func Deserialize(data []byte) (*SuccessMessageResponse, error) {
-	smr := &SuccessMessageResponse{}
-	buf := bytes.NewBuffer(data)
-
-	// Deserialize Value (read until null terminator)
-	value, err := buf.ReadString(0)
-	if err != nil {
-		return nil, err
-	}
-	smr.Value = value[:len(value)-1] // Remove the null terminator
-
-	// Deserialize Nodes (continue reading until the buffer is empty)
-	var nodes []*KNode
-	for buf.Len() > 0 {
-		node := &KNode{}
-
-		// Deserialize ID
-		id, err := buf.ReadString(0)
-		if err != nil {
-			return nil, err
-		}
-		node.ID = id[:len(id)-1] // Remove the null terminator
-
-		// Deserialize IP
-		ip, err := buf.ReadString(0)
-		if err != nil {
-			return nil, err
-		}
-		node.IP = ip[:len(ip)-1] // Remove the null terminator
-
-		// Deserialize Port (read 4 bytes for Port)
-		portBytes := make([]byte, 4)
-		if _, err := buf.Read(portBytes); err != nil {
-			return nil, err
-		}
-		node.Port = int(binary.BigEndian.Uint32(portBytes))
-
-		nodes = append(nodes, node)
-	}
-
-	smr.Nodes = nodes
-	return smr, nil
+	stopOnce     sync.Once
 }
 
 // NewDHT creates a new instance of DHT.
-func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port int) *DHT {
+func NewDHT(cleanup_interval time.Duration, encryptionKey []byte, id string, ip string, port int) *DHT {
 	return &DHT{
 		RoutingTable: NewRoutingTable(id),
-		Storage:      NewDHTStorage(ttl, encryptionKey),
-		Network:      message.NewNetwork(id, ip, port),
+		Storage:      storage.NewStorage(cleanup_interval, encryptionKey),
+		Network:      message.NewNetwork(ip, id, port),
 	}
+}
+
+// HashKey hashes the given key and returns the hash as a hex string.
+func HashKey(key string) string {
+	hash := sha256.Sum256([]byte(key))
+	hexEncodedHash := hex.EncodeToString(hash[:20])
+	// util.Log().Print("Hashed key length: ", len(hexEncodedHash))
+	// decodedHash, _ := message.HexStringToByte32(hexEncodedHash)
+	// util.Log().Print("Decoded hash length: ", len(decodedHash))
+	return hexEncodedHash // Use the first 160 bits (20 bytes) of the hash
+}
+
+// IsHashedKey checks if the provided key is already a hashed key in hex string format.
+func IsHashedKey(key string) bool {
+	// Hex string of 160-bit (20 bytes) hash should be 40 characters long
+	const hexPattern = "^[a-fA-F0-9]{40}$"
+	matched, _ := regexp.MatchString(hexPattern, key)
+	return matched
+}
+
+// EnsureKeyHashed returns the hashed key as a hex string if the provided key is not already hashed.
+func EnsureKeyHashed(key string) string {
+	if IsHashedKey(key) {
+		return key // Already hashed
+	}
+	return HashKey(key) // Hash the key
 }
 
 // PUT stores a value in the DHT.
 func (d *DHT) PUT(key, value string, ttl int) error {
-	return d.Storage.Put(key, value, ttl)
+	key = EnsureKeyHashed(key)
+	nodesToStore, err := d.FindNode(key)
+	if err != nil {
+		return err
+	}
+
+	failedNodes := make(map[string]*KNode)
+
+	if len(nodesToStore) == 0 {
+		util.Log().Print("No nodes found to store the data, storing on this node")
+		err = d.StoreToStorage(key, value, ttl)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	for _, node := range nodesToStore {
+		response, err := d.SendStoreMessage(key, value, *node)
+
+		util.Log().Infof("Response: %v", response)
+
+		if err != nil {
+			util.Log().Errorf("Error sending message: %v", err)
+			return err
+		}
+
+		if response.GetType() == message.DHT_FAILURE {
+			failedNodes[node.ID] = node
+		}
+	}
+
+	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+		for _, node := range failedNodes {
+			response, err := d.SendStoreMessage(key, value, *node)
+
+			if err != nil {
+				util.Log().Errorf("Error sending retry message: %v", err)
+				return err
+			}
+
+			if response.GetType() == message.DHT_SUCCESS {
+				delete(failedNodes, node.ID)
+			}
+		}
+	}
+
+	if len(failedNodes) > 0 {
+		util.Log().Infof("Failed nodes: %v", failedNodes)
+	}
+
+	return nil
+}
+
+func (d *DHT) CreateStoreMessage(key, value string) ([]byte, error) {
+	byte32Key, err := message.HexStringToByte32(key)
+	if err != nil {
+		util.Log().Errorf("Error converting key to byte32: %v", err)
+		return nil, err
+	}
+	msg := message.NewDHTStoreMessage(10000, 2, byte32Key, []byte(value))
+	rpcMessage, serializationErr := msg.Serialize()
+
+	if serializationErr != nil { //TODO handle error
+		util.Log().Errorf("Error serializing message: %v", serializationErr)
+		return nil, serializationErr
+	}
+
+	return rpcMessage, nil
+}
+
+func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Message, error) {
+	rpcMessage, err := d.CreateStoreMessage(key, value)
+
+	if err != nil {
+		util.Log().Errorf("Error creating/serializing message: %v", err)
+		return nil, err
+	}
+
+	responseChan := make(chan []byte)
+	errorChan := make(chan error)
+
+	// Send message asynchronously
+	go func() {
+		util.Log().Print("sending this from dht.sendStoreMessage: ", rpcMessage)
+		msgResponse, err := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
+		util.Log().Print("dht.sendStoreMessage response: ", msgResponse)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		responseChan <- msgResponse
+	}()
+
+	select {
+	case msgResponse := <-responseChan:
+		// Deserialize the response
+		deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
+		if deserializationErr != nil {
+			util.Log().Errorf("Error deserializing response: %v", deserializationErr)
+			return nil, deserializationErr
+		}
+		return deserializedResponse, nil
+
+	case msgResponseErr := <-errorChan:
+		util.Log().Errorf("Error sending message: %v", msgResponseErr)
+		return nil, msgResponseErr
+	}
 }
 
 // GET retrieves a value from the DHT.
-func (d *DHT) GET(key string) (string, error) {
-	return d.Storage.Get(key)
+func (d *DHT) GET(key string) (string, []*KNode, error) {
+	key = EnsureKeyHashed(key)
+	value, nodes, err := d.FindValue(key)
+
+	if err != nil {
+		return "", nil, err
+	}
+
+	if value != "" {
+		return value, nil, nil
+	}
+
+	if nodes == nil {
+		return "", nil, errors.New("no nodes found")
+	}
+
+	return "", nodes, nil
 }
 
-func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, error) {
-	value, err := d.GET(targetKeyID)
+func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
+	value, err := d.Storage.Get(targetKeyID)
+	util.Log().Printf("Node (%s) getting from storage: %s", d.Network.ID, value)
+	if err != nil {
+		return "", err
+	}
+
+	if value != "" {
+		return value, nil
+	} else {
+		return "", nil
+	}
+
+	//return "", errors.New("unexpected return path")
+}
+
+func (d *DHT) StoreToStorage(key, value string, ttl int) error {
+	util.Log().Printf("Node (%s) storing the key:(%s) with value (%s): ", d.Network.ID, key, value)
+	key = EnsureKeyHashed(key)
+	return d.Storage.Put(key, value, ttl)
+}
+
+func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
+	value, err := d.GetFromStorage(targetKeyID)
+
 	if err != nil {
 		return "", nil, err
 	}
@@ -127,29 +222,46 @@ func (d *DHT) FindValue(originID string, targetKeyID string) (string, []*KNode, 
 	}
 
 	// If the value is not found in the closest nodes, perform a FindNode RPC
-	nodes := d.RoutingTable.GetClosestNodes(originID, targetKeyID)
+	nodes, err := d.RoutingTable.GetClosestNodes(targetKeyID)
+	if err != nil {
+		return "", nil, err
+	}
 	if len(nodes) == 0 {
-		return "", nil, errors.New("no nodes found")
+		return "", nil, nil
 	}
 
 	return "", nodes, nil
 }
 
-func (d *DHT) FindNode(originID string, targetID string) ([]*KNode, error) {
-	nodes := d.RoutingTable.GetClosestNodes(originID, targetID)
+func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
+	nodes, err := d.RoutingTable.GetClosestNodes(targetID)
+	util.Log().Printf("Node (%s) findNode nodes count: %d", d.Network.ID, len(nodes))
+	if err != nil {
+		return nil, err
+	}
 	if len(nodes) == 0 {
-		return nil, errors.New("no nodes found")
+		return nil, nil
 	}
 
 	return nodes, nil
 }
 
-func (d *DHT) IterativeFindNode(targetID string) []*KNode {
-	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
-	closestNodeDistance := XOR(shortlist[0].ID, targetID)
-	lastClosestNode := shortlist[0]
+func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
+	shortlist, err := d.FindNode(targetID)
+	if err != nil {
+		return nil, err
+	}
+	if len(shortlist) == 0 {
+		return nil, nil
+	}
+	closestNodeDistance, err := XOR(shortlist[0].ID, targetID)
+	if err != nil {
+		return nil, err
+	}
+
 	queriedNodes := make(map[string]bool)
+	var queriedShortList []*KNode
+	failedNodes := make(map[string]*KNode)
 
 	for len(shortlist) > 0 {
 		minQueryCount := min(len(shortlist), Alpha)
@@ -161,27 +273,13 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 				continue
 			}
 			queriedNodes[node.ID] = true
+			queriedShortList = append(queriedShortList, node)
 
-			msg, msgCreationErr := message.CreateMessage(message.DHT_FIND_NODE, []byte(targetID))
-			rpcMessage, serializationErr := msg.Serialize()
-
-			if msgCreationErr != nil || serializationErr != nil { //TODO handle error
-				log.Printf("Error creating/serializing message: %v, %v", msgCreationErr, serializationErr)
-				return nil
-			}
-
-			//TODO wait for msgResponse
-			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
-			if msgResponseErr != nil { //TODO handle error
-				log.Printf("Error sending message: %v", msgResponseErr)
-				return nil
-			}
-
-			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-			// Deserialize the response to check if it contains a value or nodes
-			if deserializationErr != nil {
-				log.Printf("Error deserializing response: %v", deserializationErr)
-				return nil
+			deserializedResponse, err := d.SendFindNodeMessage(targetID, *node)
+			if err != nil {
+				util.Log().Errorf("Error sending message: %v", err)
+				failedNodes[node.ID] = node
+				continue
 			}
 
 			//Check if the deserialized response has value or nodes
@@ -191,8 +289,8 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 				smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 				if deserializationErr != nil {
-					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
-					return nil
+					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+					continue
 				}
 
 				for _, node := range smr.Nodes {
@@ -207,29 +305,126 @@ func (d *DHT) IterativeFindNode(targetID string) []*KNode {
 				}
 			case *message.DHTFailureMessage:
 				// TODO handle failure
-				log.Printf("Failure message received")
+				util.Log().Info("Failure message received")
+				failedNodes[node.ID] = node
 			default:
 				// TODO handle unknown message
-				log.Printf("Unknown message type received")
+				util.Log().Info("Unknown message type received")
+				failedNodes[node.ID] = node
 			}
 		}
 
-		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
-			if lastClosestNode.ID == shortlist[0].ID {
-				break
+		if len(shortlist) == 0 {
+			break
+		}
+
+		xorResult, err := XOR(shortlist[0].ID, targetID)
+		if err != nil {
+			util.Log().Errorf("Error calculating XOR: %v", err)
+			continue
+		}
+
+		if xorResult >= closestNodeDistance { //break if the closest node is not closer than the last closest node
+			break
+		}
+	}
+
+	if len(failedNodes) > 0 {
+		util.Log().Infof("Failed nodes length: %v", len(failedNodes))
+		for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+			for _, node := range failedNodes {
+				if queriedNodes[node.ID] {
+					continue
+				}
+				queriedNodes[node.ID] = true
+
+				deserializedResponse, err := d.SendFindNodeMessage(targetID, *node)
+				if err != nil {
+					util.Log().Infof("Error sending message: %v", err)
+					continue
+				}
+
+				//Check if the deserialized response has value or nodes
+				switch response := deserializedResponse.(type) {
+				case *message.DHTSuccessMessage:
+					delete(failedNodes, node.ID)
+					serializedSuccessResponse := response.Value
+					smr, deserializationErr := Deserialize(serializedSuccessResponse)
+
+					if deserializationErr != nil {
+						util.Log().Infof("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+						continue
+					}
+
+					for _, node := range smr.Nodes {
+						if !queriedNodes[node.ID] { //Don't add nodes that have already been queried
+							shortlist = append(shortlist, node)
+						}
+					}
+					SortNodes(shortlist, targetID)
+
+					if len(shortlist) >= K { // TODO Not sure about this
+						break
+					}
+
+				case *message.DHTFailureMessage:
+					util.Log().Info("Failure message received")
+				default:
+					util.Log().Info("Unknown message type received")
+				}
 			}
 		}
 	}
 
-	return shortlist[:min(len(shortlist), K)]
+	return queriedShortList[:min(len(queriedShortList), K)], nil
 }
 
-func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
-	rt := d.RoutingTable
-	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
-	closestNodeDistance := XOR(shortlist[0].ID, targetID)
-	lastClosestNode := shortlist[0]
+func (d *DHT) SendFindNodeMessage(targetID string, node KNode) (message.Message, error) {
+	byte32Key, err := message.HexStringToByte32(targetID)
+	if err != nil {
+		util.Log().Errorf("Error converting key to byte32: %v", err)
+		return nil, err
+	}
+	msg := message.NewDHTFindNodeMessage(byte32Key)
+	rpcMessage, serializationErr := msg.Serialize()
+
+	if serializationErr != nil { //TODO handle error
+		util.Log().Errorf("Error creating/serializing message: %v", serializationErr)
+		return nil, serializationErr
+	}
+
+	//TODO wait for msgResponse
+	msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
+	if msgResponseErr != nil { //TODO handle error
+		util.Log().Errorf("Error sending message: %v", msgResponseErr)
+		return nil, msgResponseErr
+	}
+
+	deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
+	// Deserialize the response to check if it contains a value or nodes
+	if deserializationErr != nil {
+		util.Log().Errorf("Error deserializing response: %v", deserializationErr)
+		return nil, deserializationErr
+	}
+
+	return deserializedResponse, nil
+}
+
+func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
+	shortlist, err := d.RoutingTable.GetClosestNodes(targetID)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(shortlist) == 0 {
+		return "", nil, nil
+	}
+	closestNodeDistance, err := XOR(shortlist[0].ID, targetID)
+	if err != nil {
+		return "", nil, err
+	}
 	queriedNodes := make(map[string]bool)
+	var queriedShortList []*KNode
+	failedNodes := make(map[string]*KNode)
 
 	for len(shortlist) > 0 {
 		minQueryCount := min(len(shortlist), Alpha)
@@ -241,27 +436,12 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 				continue
 			}
 			queriedNodes[node.ID] = true
+			queriedShortList = append(queriedShortList, node)
 
-			msg, msgCreationErr := message.CreateMessage(message.DHT_FIND_VALUE, []byte(targetID))
-			rpcMessage, serializationErr := msg.Serialize()
-
-			if msgCreationErr != nil || serializationErr != nil { //TODO handle error
-				log.Printf("Error creating/serializing message: %v, %v", msgCreationErr, serializationErr)
-				return "", nil
-			}
-
-			//TODO wait for msgResponse
-			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
-			if msgResponseErr != nil { //TODO handle error
-				log.Printf("Error sending message: %v", msgResponseErr)
-				return "", nil
-			}
-
-			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
-			// Deserialize the response to check if it contains a value or nodes
-			if deserializationErr != nil {
-				log.Printf("Error deserializing response: %v", deserializationErr)
-				return "", nil
+			deserializedResponse, err := d.SendFindValueMessage(targetID, *node)
+			if err != nil {
+				util.Log().Errorf("Error converting key to byte32: %v", err)
+				continue
 			}
 
 			//Check if the deserialized response has value or nodes
@@ -271,12 +451,14 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 				smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 				if deserializationErr != nil {
-					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
-					return "", nil
+					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+					continue
 				}
+
+				util.Log().Info("Success message received from node: ", node.ID)
 
 				if smr.Value != "" {
-					return smr.Value, nil
+					return smr.Value, nil, nil
 				}
 
 				for _, node := range smr.Nodes {
@@ -291,76 +473,161 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode) {
 				}
 			case *message.DHTFailureMessage:
 				// TODO handle failure
-				log.Printf("Failure message received")
+				util.Log().Info("Failure message received")
+				failedNodes[node.ID] = node
 			default:
 				// TODO handle unknown message
-				log.Printf("Unknown message type received")
+				util.Log().Info("Unknown message type received")
+				failedNodes[node.ID] = node
 			}
 		}
 
-		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
-			if lastClosestNode.ID == shortlist[0].ID {
-				break
-			}
+		if len(shortlist) == 0 {
+			break
+		}
+
+		xorResult, err := XOR(shortlist[0].ID, targetID)
+		if err != nil {
+			util.Log().Errorf("Error calculating XOR: %v", err)
+			continue
+		}
+
+		if xorResult >= closestNodeDistance { //break if the closest node is not closer than the last closest node
+			break
 		}
 	}
 
-	return "", shortlist[:min(len(shortlist), K)]
-}
+	if len(failedNodes) > 0 {
+		util.Log().Info("Failed nodes len:", len(failedNodes))
+		for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+			for _, node := range failedNodes {
+				if queriedNodes[node.ID] {
+					continue
+				}
+				queriedNodes[node.ID] = true
 
-// mock rpc call
-func (kn *KNode) FindNodeRPC(targetID string) []*KNode {
-	return []*KNode{}
-}
+				deserializedResponse, err := d.SendFindValueMessage(targetID, *node)
+				if err != nil {
+					util.Log().Errorf("Error sending message: %v", err)
+					continue
+				}
 
-func (rt *RoutingTable) IterativeFindValue2(targetID string) (string, []*KNode) {
-	shortlist := rt.GetClosestNodes(rt.NodeID, targetID)
-	closestNodeDistance := XOR(shortlist[0].ID, targetID)
-	lastClosestNode := shortlist[0]
-	queriedNodes := make(map[string]bool)
+				//Check if the deserialized response has value or nodes
+				switch response := deserializedResponse.(type) {
+				case *message.DHTSuccessMessage:
+					delete(failedNodes, node.ID)
+					serializedSuccessResponse := response.Value
+					smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
-	for len(shortlist) > 0 {
-		minQueryCount := min(len(shortlist), Alpha)
-		alphaNodes := shortlist[:minQueryCount]
-		shortlist = shortlist[minQueryCount:]
+					if deserializationErr != nil {
+						util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+						continue
+					}
 
-		for _, node := range alphaNodes {
-			if queriedNodes[node.ID] {
-				continue
-			}
-			queriedNodes[node.ID] = true
+					if smr.Value != "" {
+						return smr.Value, nil, nil
+					}
 
-			value, foundNodes := node.FindValueRPC(targetID) //Simulate RPC call
+					for _, node := range smr.Nodes {
+						if !queriedNodes[node.ID] { //Don't add nodes that have already been queried
+							shortlist = append(shortlist, node)
+						}
+					}
+					SortNodes(shortlist, targetID)
 
-			if value != "" {
-				return value, nil
-			}
+					if len(shortlist) >= K { // TODO Not sure about this
+						break
+					}
 
-			for _, foundNode := range foundNodes {
-				if !queriedNodes[foundNode.ID] { //Don't add nodes that have already been queried
-					shortlist = append(shortlist, foundNode)
+				case *message.DHTFailureMessage:
+					util.Log().Info("Failure message received")
+				default:
+					util.Log().Info("Unknown message type received")
 				}
 			}
-			SortNodes(shortlist, targetID)
+		}
+	}
 
-			if len(shortlist) >= K { // TODO Not sure about this
-				break
-			}
+	return "", queriedShortList[:min(len(queriedShortList), K)], nil
+}
+
+func (d *DHT) SendFindValueMessage(targetID string, node KNode) (message.Message, error) {
+	byte32Key, err := message.HexStringToByte32(targetID)
+	if err != nil {
+		util.Log().Errorf("Error converting key to byte32: %v", err)
+		return nil, err
+	}
+	msg := message.NewDHTFindValueMessage(byte32Key)
+	rpcMessage, serializationErr := msg.Serialize()
+
+	if serializationErr != nil { //TODO handle error
+		util.Log().Errorf("Error creating/serializing message: %v", serializationErr)
+		return nil, serializationErr
+	}
+
+	util.Log().Info("Sending FindValue message to node: ", node.ID)
+	msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
+	if msgResponseErr != nil { //TODO handle error
+		util.Log().Errorf("Error sending message: %v", msgResponseErr)
+		return nil, msgResponseErr
+	}
+
+	deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
+	// Deserialize the response to check if it contains a value or nodes
+	if deserializationErr != nil {
+		util.Log().Errorf("Error deserializing response: %v", deserializationErr)
+		return nil, deserializationErr
+	}
+
+	return deserializedResponse, nil
+}
+
+// IterativeStore stores a value in the DHT.
+func (d *DHT) IterativeStore(key, value string) error {
+	nodesToPublishData, err := d.IterativeFindNode(key)
+	if err != nil {
+		return err
+	}
+	if nodesToPublishData == nil {
+		return errors.New("no nodes found")
+	}
+	failedNodes := make(map[string]*KNode)
+	for _, node := range nodesToPublishData {
+
+		response, err := d.SendStoreMessage(key, value, *node)
+
+		if err != nil {
+			util.Log().Errorf("Error sending retry message: %v", err)
+			failedNodes[node.ID] = node
+			return err
 		}
 
-		if XOR(shortlist[0].ID, targetID).Cmp(closestNodeDistance) >= 0 { //If the closest node is not closer than the last closest node
-			if lastClosestNode.ID == shortlist[0].ID {
-				break
+		if response.GetType() == message.DHT_SUCCESS {
+			util.Log().Info("Successfully stored data on node: ", node.ID)
+			//delete(failedNodes, node.ID)
+		}
+	}
+
+	for i := 0; i < RetryLimit; i++ { // Retry failed nodes
+		for _, node := range failedNodes {
+			response, err := d.SendStoreMessage(key, value, *node)
+
+			if err != nil {
+				util.Log().Errorf("Error sending retry message: %v", err)
+				return err
+			}
+
+			if response.GetType() == message.DHT_SUCCESS {
+				delete(failedNodes, node.ID)
 			}
 		}
 	}
 
-	return "", shortlist[:min(len(shortlist), K)]
-}
+	if len(failedNodes) > 0 {
+		util.Log().Infof("Failed nodes: %v", failedNodes)
+	}
 
-// mock rpc call
-func (kn *KNode) FindValueRPC(targetID string) (string, []*KNode) {
-	return "", []*KNode{}
+	return nil
 }
 
 func min(a, b int) int {
@@ -382,103 +649,12 @@ func (d *DHT) Leave() error {
 	return nil
 }
 
-// DHTStorage is a simple in-memory key-value store with TTL and encryption.
-type DHTStorage struct {
-	data map[string]*storageItem
-	mu   sync.Mutex
-	ttl  time.Duration
-	key  []byte // Encryption key
-}
-
-type storageItem struct {
-	value  string
-	expiry time.Time
-	hash   string
-}
-
-// NewDHTStorage initializes a new DHTStorage with a given TTL and encryption key.
-func NewDHTStorage(ttl time.Duration, key []byte) *DHTStorage {
-	storage := &DHTStorage{
-		data: make(map[string]*storageItem),
-		ttl:  ttl,
-		key:  key,
-	}
-	storage.StartCleanup(ttl)
-	return storage
-}
-
-// Put stores a value with the specified TTL.
-func (s *DHTStorage) Put(key, value string, ttl int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	encryptedValue, err := util.Encrypt([]byte(value), s.key)
-	if err != nil {
-		log.Printf("Error encrypting value: %v", err)
-		return err
-	}
-
-	hasher := sha1.New()
-	hasher.Write([]byte(encryptedValue))
-	hash := hex.EncodeToString(hasher.Sum(nil))
-
-	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
-	s.data[key] = &storageItem{
-		value:  encryptedValue,
-		expiry: expiry,
-		hash:   hash,
-	}
+// Stop gracefully shuts down the DHT and cleanup routines.
+func (d *DHT) Stop() error {
+	// Ensure the stop is called only once
+	d.stopOnce.Do(func() {
+		d.Storage.StopCleanup()
+		util.Log().Println("DHT node stopped gracefully.")
+	})
 	return nil
-}
-
-// Get retrieves the value associated with the key if it exists and hasn't expired.
-func (s *DHTStorage) Get(key string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	item, exists := s.data[key]
-	if !exists {
-		return "", nil
-	}
-
-	if time.Now().After(item.expiry) {
-		delete(s.data, key)
-		return "", nil
-	}
-
-	hasher := sha1.New()
-	hasher.Write([]byte(item.value))
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	if hash != item.hash {
-		return "", errors.New("data integrity check failed")
-	}
-
-	decryptedValue, err := util.Decrypt(item.value, s.key)
-	if err != nil {
-		return "", err
-	}
-
-	return string(decryptedValue), nil
-}
-
-// StartCleanup starts a routine that periodically cleans up expired items.
-func (s *DHTStorage) StartCleanup(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	go func() {
-		for range ticker.C {
-			s.CleanupExpired()
-		}
-	}()
-}
-
-// CleanupExpired removes expired items from the storage.
-func (s *DHTStorage) CleanupExpired() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for key, item := range s.data {
-		if time.Now().After(item.expiry) {
-			delete(s.data, key)
-		}
-	}
 }
