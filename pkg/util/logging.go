@@ -1,6 +1,7 @@
 package util
 
 import (
+	"io"
 	"os"
 	"strings"
 
@@ -14,32 +15,33 @@ type CustomFormatter struct {
 }
 
 func (f *CustomFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// Create a custom format, stripping "time", "level", and "msg" labels
-	// and removing any trailing newlines from the message
 	message := entry.Message
 	if strings.HasSuffix(message, "\n") {
 		message = strings.TrimSuffix(message, "\n")
 	}
-
-	// Format the message without additional labels
 	log := []byte(message + "\n")
 	return log, nil
 }
 
 func SetupLogging(logFile string) {
 	// Use the custom formatter instead of the default logrus formatter
-	logrus.SetFormatter(&CustomFormatter{
+	log.SetFormatter(&CustomFormatter{
 		TextFormatter: logrus.TextFormatter{
-			DisableTimestamp: true, // Remove the timestamp from log output
+			DisableTimestamp: true,
 		},
 	})
 
+	// Open the log file
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err == nil {
-		logrus.SetOutput(file)
-	} else {
-		logrus.SetOutput(os.Stdout)
+	if err != nil {
+		// If there is an error opening the file, just log to stdout
+		log.SetOutput(os.Stdout)
+		return
 	}
+
+	// Create a multi-writer to write both to file and stdout
+	multiWriter := io.MultiWriter(file, os.Stdout)
+	log.SetOutput(multiWriter)
 }
 
 func Log() *logrus.Logger {

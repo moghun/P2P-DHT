@@ -32,13 +32,10 @@ func main() {
 
 	// Set up logging
 	util.SetupLogging("bootstrap_node.log")
-
+	
 	// Create a new BootstrapNode instance
 	bootstrapNodeInstance := node.NewBootstrapNode(config, 86400)
-
-	// Hardcoded for now TODO or not TODO?
-	bootstrapNodeInstance.AddKnownPeer("nodeID1", "192.168.1.1", 8081)
-	bootstrapNodeInstance.AddKnownPeer("nodeID2", "192.168.1.2", 8082)
+	util.Log().Infof("Node (%s) is starting...", bootstrapNodeInstance.ID)
 
 	// Start the API server to handle bootstrap requests from other nodes
 	go func() {

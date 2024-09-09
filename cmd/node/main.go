@@ -34,9 +34,11 @@ func main() {
 	// Set up logging
 	util.SetupLogging("node.log")
 
+
 	// Create a new node instance
 	nodeInstance := node.NewNode(config, time.Duration(config.TTL))
 
+	util.Log().Infof("Node (%s) is starting...", nodeInstance.ID)
 	// Bootstrap the node to join the network
 	err := nodeInstance.Bootstrap()
 	if err != nil {

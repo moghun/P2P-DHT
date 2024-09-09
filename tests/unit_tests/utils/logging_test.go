@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
@@ -21,12 +20,14 @@ func TestSetupLoggingToFile(t *testing.T) {
 	// Set up logging
 	util.SetupLogging(tmpFile.Name())
 
-	// Log a test message
+	// Log a test message using the custom logger
 	testMessage := "This is a test log message"
-	logrus.Info(testMessage)
+	util.Log().Info(testMessage)
 
 	// Ensure log is flushed to the file
-	logrus.StandardLogger().Out.(*os.File).Sync()
+	if f, ok := util.Log().Out.(*os.File); ok {
+		f.Sync()
+	}
 
 	// Read the log file
 	logContent, err := ioutil.ReadFile(tmpFile.Name())
@@ -55,12 +56,14 @@ func TestSetupLoggingToStdout(t *testing.T) {
 	// Set up logging with an invalid file path to fall back to stdout
 	util.SetupLogging("/invalid/path/to/logfile.log")
 
-	// Log a test message
+	// Log a test message using the custom logger
 	testMessage := "This is a test log message to stdout"
-	logrus.Info(testMessage)
+	util.Log().Info(testMessage)
 
 	// Ensure log is flushed to stdout
-	logrus.StandardLogger().Out.(*os.File).Sync()
+	if f, ok := util.Log().Out.(*os.File); ok {
+		f.Sync()
+	}
 
 	// Read the stdout file
 	tmpFile.Close() // Ensure the log is flushed to the file
