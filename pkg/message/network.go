@@ -62,7 +62,7 @@ func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) ([]b
         return nil, fmt.Errorf("failed to read response: %v", err)
     }
 
-    util.Log().Printf("Received response from %s: %x", address, buf[:response])
+    util.Log().Printf("Node (%s) received response from %s: %x", n.ID, address, buf[:response])
     return buf[:response], nil
 }
 

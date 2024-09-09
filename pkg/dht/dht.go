@@ -26,7 +26,7 @@ func NewDHT(cleanup_interval time.Duration, encryptionKey []byte, id string, ip 
 	return &DHT{
 		RoutingTable: NewRoutingTable(id),
 		Storage:      storage.NewStorage(cleanup_interval, encryptionKey),
-		Network:      message.NewNetwork(id, ip, port),
+		Network:      message.NewNetwork(ip, id, port),
 	}
 }
 
@@ -188,7 +188,7 @@ func (d *DHT) GET(key string) (string, []*KNode, error) {
 
 func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 	value, err := d.Storage.Get(targetKeyID)
-	util.Log().Print("Getting from storage: ", value)
+	util.Log().Printf("Node (%s) getting from storage: %s", d.Network.ID, value)
 	if err != nil {
 		return "", err
 	}
@@ -203,7 +203,7 @@ func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 }
 
 func (d *DHT) StoreToStorage(key, value string, ttl int) error {
-	util.Log().Print("Storing to storage")
+	util.Log().Printf("Node (%s) storing the key:(%s) with value (%s): ", d.Network.ID, key, value)
 	key = EnsureKeyHashed(key)
 	return d.Storage.Put(key, value, ttl)
 }
@@ -234,7 +234,7 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 
 func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 	nodes, err := d.RoutingTable.GetClosestNodes(targetID)
-	util.Log().Print("FindNode nodes count: ", len(nodes))
+	util.Log().Printf("Node (%s) findNode nodes count: %d", d.Network.ID, len(nodes))
 	if err != nil {
 		return nil, err
 	}
