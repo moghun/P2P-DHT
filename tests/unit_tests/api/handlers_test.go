@@ -190,7 +190,7 @@ func TestHandleFindValue(t *testing.T) {
 	byte32Key, err := message.HexStringToByte32(hashedKey)
 	assert.NoError(t, err)
 
-	findValueMsg := message.NewDHTFindValueMessage(byte32Key)
+	findValueMsg := message.NewDHTFindValueMessage(byte32Key, []byte(hashedNodeId))
 	_, err = findValueMsg.Serialize()
 	assert.NoError(t, err)
 

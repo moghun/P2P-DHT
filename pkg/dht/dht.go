@@ -557,7 +557,7 @@ func (d *DHT) SendFindValueMessage(targetID string, node KNode) (message.Message
 		util.Log().Errorf("Error converting key to byte32: %v", err)
 		return nil, err
 	}
-	msg := message.NewDHTFindValueMessage(byte32Key)
+	msg := message.NewDHTFindValueMessage(byte32Key, []byte(d.RoutingTable.NodeID))
 	rpcMessage, serializationErr := msg.Serialize()
 
 	if serializationErr != nil { //TODO handle error
