@@ -96,7 +96,9 @@ func TestDHTFindValueMessage(t *testing.T) {
 
 func TestDHTFindNodeMessage(t *testing.T) {
 	key := [32]byte{}
-	msg := message.NewDHTFindNodeMessage(key)
+	idStr := "testId"
+	hashedId := dht.EnsureKeyHashed(idStr)
+	msg := message.NewDHTFindNodeMessage(key, []byte(hashedId))
 
 	serialized, err := msg.Serialize()
 	assert.NoError(t, err)

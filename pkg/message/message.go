@@ -81,7 +81,7 @@ func CreateMessage(msgType int, data []byte) (Message, error) {
 	case DHT_PONG:
 		return NewDHTPongMessage(), nil
 	case DHT_FIND_NODE:
-		return NewDHTFindNodeMessage([32]byte{}), nil // Placeholder for initialization
+		return NewDHTFindNodeMessage([32]byte{}, data), nil // Placeholder for initialization
 	case DHT_FIND_VALUE:
 		return NewDHTFindValueMessage([32]byte{}), nil // Placeholder for initialization
 	case DHT_STORE:

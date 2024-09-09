@@ -7,16 +7,18 @@ import (
 
 type DHTFindNodeMessage struct {
 	BaseMessage
-	Key [32]byte
+	Key  [32]byte
+	Data []byte
 }
 
-func NewDHTFindNodeMessage(key [32]byte) *DHTFindNodeMessage {
+func NewDHTFindNodeMessage(key [32]byte, data []byte) *DHTFindNodeMessage {
 	return &DHTFindNodeMessage{
 		BaseMessage: BaseMessage{
 			Size: 36,
 			Type: DHT_FIND_NODE,
 		},
-		Key: key,
+		Key:  key,
+		Data: data,
 	}
 }
 
@@ -28,6 +30,9 @@ func (m *DHTFindNodeMessage) Serialize() ([]byte, error) {
 	if _, err := buf.Write(m.Key[:]); err != nil {
 		return nil, err
 	}
+	if _, err := buf.Write(m.Data[:]); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
@@ -37,6 +42,9 @@ func (m *DHTFindNodeMessage) Deserialize(data []byte) (Message, error) {
 	}
 	reader := bytes.NewReader(data[4:])
 	if err := binary.Read(reader, binary.BigEndian, &m.Key); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &m.Data); err != nil {
 		return nil, err
 	}
 	return m, nil
