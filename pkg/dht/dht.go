@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"log"
 	"regexp"
 	"sync"
 	"time"
@@ -276,7 +275,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 
 			deserializedResponse, err := d.SendFindNodeMessage(targetID, *node)
 			if err != nil {
-				log.Printf("Error sending message: %v", err)
+				util.Log().Errorf("Error sending message: %v", err)
 				failedNodes[node.ID] = node
 				continue
 			}
@@ -288,7 +287,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 				smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 				if deserializationErr != nil {
-					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
 					continue
 				}
 
@@ -304,11 +303,11 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 				}
 			case *message.DHTFailureMessage:
 				// TODO handle failure
-				log.Printf("Failure message received")
+				util.Log().Info("Failure message received")
 				failedNodes[node.ID] = node
 			default:
 				// TODO handle unknown message
-				log.Printf("Unknown message type received")
+				util.Log().Info("Unknown message type received")
 				failedNodes[node.ID] = node
 			}
 		}
@@ -329,7 +328,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 
 				deserializedResponse, err := d.SendFindNodeMessage(targetID, *node)
 				if err != nil {
-					log.Printf("Error sending message: %v", err)
+					util.Log().Infof("Error sending message: %v", err)
 					continue
 				}
 
@@ -341,7 +340,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 					smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 					if deserializationErr != nil {
-						log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+						util.Log().Infof("Error deserializing SuccessMessageResponse: %v", deserializationErr)
 						continue
 					}
 
@@ -357,16 +356,16 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 					}
 
 				case *message.DHTFailureMessage:
-					log.Printf("Failure message received")
+					util.Log().Info("Failure message received")
 				default:
-					log.Printf("Unknown message type received")
+					util.Log().Info("Unknown message type received")
 				}
 			}
 		}
 	}
 
 	if len(failedNodes) > 0 {
-		log.Printf("Failed nodes: %v", failedNodes)
+		util.Log().Infof("Failed nodes: %v", failedNodes)
 	}
 
 	return shortlist[:min(len(shortlist), K)], nil
@@ -414,6 +413,11 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 	failedNodes := make(map[string]*KNode)
 
 	for len(shortlist) > 0 {
+		util.Log().Info("Iterative Find, Shortlist: ")
+		for i, node := range shortlist {
+			util.Log().Infof("Node %d: %s", i, node.ID)
+		}
+
 		minQueryCount := min(len(shortlist), Alpha)
 		alphaNodes := shortlist[:minQueryCount]
 		shortlist = shortlist[minQueryCount:]
@@ -440,6 +444,8 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
 					continue
 				}
+
+				util.Log().Info("Success message received from node: ", node.ID)
 
 				if smr.Value != "" {
 					return smr.Value, nil, nil
@@ -543,6 +549,7 @@ func (d *DHT) SendFindValueMessage(targetID string, node KNode) (message.Message
 		return nil, serializationErr
 	}
 
+	util.Log().Info("Sending FindValue message to node: ", node.ID)
 	msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 	if msgResponseErr != nil { //TODO handle error
 		util.Log().Errorf("Error sending message: %v", msgResponseErr)

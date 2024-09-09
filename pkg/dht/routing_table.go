@@ -3,7 +3,6 @@ package dht
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"sort"
 	"strings"
@@ -52,10 +51,10 @@ func (rt *RoutingTable) GetAllNodes() ([]*KNode, error) {
 
 // AddNode adds a node to the appropriate KBucket.
 func (rt *RoutingTable) AddNode(targetID *KNode) {
-	log.Print("Adding node to routing table: ", targetID.ID)
+	util.Log().Info("Adding node to routing table: ", targetID.ID)
 	bucketIndex, _ := XOR(rt.NodeID, targetID.ID)
 	if bucketIndex == 0 {
-		log.Print("Bucket Index is 0")
+		util.Log().Info("Bucket Index is 0")
 		return
 	}
 	util.Log().Infof("Adding Node Bucket Index: %d", bucketIndex)
@@ -78,7 +77,7 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Print("Bucket Index for Closest Nodes: ", bucketIndex)
+	util.Log().Info("Bucket Index for Closest Nodes: ", bucketIndex)
 	bucket := rt.Buckets[bucketIndex]
 
 	nodes := bucket.GetNodes()
@@ -86,7 +85,7 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 	if len(nodes) <= K {
 		// If the bucket has less than k nodes, include nodes from other buckets
 		//TODO would we ever need to check more than Alpha*2 buckets?
-		log.Print("Bucket has less than K nodes, no nodes: ", len(nodes))
+		util.Log().Info("Bucket has less than K nodes, no nodes: ", len(nodes))
 		util.Log().Info("Starting to check other buckets, iterating outwards")
 		for i := 1; i <= 161; i++ {
 			if bucketIndex-i >= 0 {
