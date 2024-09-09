@@ -21,7 +21,7 @@ func TestTwoNodePingPong(t *testing.T) {
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
     }
@@ -71,7 +71,7 @@ func TestTwoNodePut(t *testing.T) {
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
     }
@@ -86,7 +86,7 @@ func TestTwoNodePut(t *testing.T) {
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
     }
 
     node2 := node.NewNode(config2, 24*time.Hour)
@@ -124,7 +124,7 @@ func TestTwoNodeGet(t *testing.T) {
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
     }
@@ -139,7 +139,7 @@ func TestTwoNodeGet(t *testing.T) {
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
     }
 
     node2 := node.NewNode(config2, 24*time.Hour)
@@ -195,7 +195,7 @@ func TestTwoNodePutGet(t *testing.T) {
 
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
     }
@@ -210,7 +210,7 @@ func TestTwoNodePutGet(t *testing.T) {
 
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-        EncryptionKey: []byte("1234567890123456"),
+        EncryptionKey: []byte("12345678901234567890123456789012"),
     }
 
     node2 := node.NewNode(config2, 24*time.Hour)
