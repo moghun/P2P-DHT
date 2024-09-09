@@ -12,6 +12,7 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
@@ -94,6 +95,13 @@ func TestSendStoreMessage(t *testing.T) {
 	}
 
 	time.Sleep(2 * time.Second)
+	config := &util.Config{
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
 	go func() {
 		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
@@ -551,6 +559,14 @@ func TestPut(t *testing.T) {
 		Storage: senderStore,
 		DHT:     senderDht,
 	}
+
+	config := &util.Config{
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+    api.InitRateLimiter(config)
 
 	go func() {
 		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
