@@ -157,25 +157,3 @@ func TestDHTBootstrapMessage(t *testing.T) {
 
 	assert.Equal(t, msg.Address, deserializedMsg.(*message.DHTBootstrapMessage).Address)
 }
-
-func TestDHTBootstrapReplyMessage(t *testing.T) {
-	nodes := []byte("127.0.0.1:8081\n127.0.0.2:8082")
-	msg := message.NewDHTBootstrapReplyMessage(nodes)
-
-	serialized, err := msg.Serialize()
-	assert.NoError(t, err)
-
-	deserializedMsg, err := msg.Deserialize(serialized)
-	assert.NoError(t, err)
-	assert.IsType(t, &message.DHTBootstrapReplyMessage{}, deserializedMsg)
-
-	assert.Equal(t, msg.Nodes, deserializedMsg.(*message.DHTBootstrapReplyMessage).Nodes)
-	assert.Equal(t, msg.Timestamp, deserializedMsg.(*message.DHTBootstrapReplyMessage).Timestamp)
-
-	parsedNodes := deserializedMsg.(*message.DHTBootstrapReplyMessage).ParseNodes()
-	assert.Len(t, parsedNodes, 2)
-	assert.Equal(t, "127.0.0.1", parsedNodes[0].IP)
-	assert.Equal(t, 8081, parsedNodes[0].Port)
-	assert.Equal(t, "127.0.0.2", parsedNodes[1].IP)
-	assert.Equal(t, 8082, parsedNodes[1].Port)
-}

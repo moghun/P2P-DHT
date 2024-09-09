@@ -3,7 +3,6 @@ package tests
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -25,7 +24,6 @@ func setupTLSConnection(t *testing.T, address string) *tls.Conn {
 	assert.NoError(t, err)
 	return conn
 }
-
 func TestStartServer(t *testing.T) {
 	// Dynamic port allocation
 	port, err := tests.GetFreePort()
@@ -40,7 +38,6 @@ func TestStartServer(t *testing.T) {
 		Difficulty: 4,
     }
 
-
 	go func() {
 		api.InitRateLimiter(config)
 		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), "", &mockNode.Node)
@@ -52,6 +49,14 @@ func TestStartServer(t *testing.T) {
 
 	conn := setupTLSConnection(t, fmt.Sprintf("127.0.0.1:%d", port))
 	defer conn.Close()
+
+	// Prepare a 32-byte node ID
+	nodeID := make([]byte, 32)
+	copy(nodeID, []byte("my-node-id")) // Example node ID, padded with zeros
+
+	// Send the 32-byte node ID first
+	_, err = conn.Write(nodeID)
+	assert.NoError(t, err, "Failed to send node ID to the server")
 
 	// Send a PING message to test the server
 	pingMsg := message.NewDHTPingMessage()
@@ -87,41 +92,68 @@ func TestHandleConnection(t *testing.T) {
 	}
 
 	t.Run("TestHandlePut", func(t *testing.T) {
+		// Prepare a 32-byte node ID
+		nodeID := make([]byte, 32)
+		copy(nodeID, []byte("my-node-id"))
+
+		// Serialize the PUT message
 		key := [32]byte{}
 		value := []byte("value")
 		putMsg := message.NewDHTPutMessage(10000, 2, key, value)
 		serializedMsg, err := putMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
-		conn.readData = serializedMsg
-		log.Println(serializedMsg)
-		api.HandleConnection(conn, &mockNode.Node)
+
+		// Prepend the node ID to the serialized message
+		conn.readData = append(nodeID, serializedMsg...)
+		api.HandlePeerConnection(conn, &mockNode.Node)
 		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
 	})
 
 	t.Run("TestHandleGet", func(t *testing.T) {
+		// Prepare a 32-byte node ID
+		nodeID := make([]byte, 32)
+		copy(nodeID, []byte("my-node-id"))
+
+		// Serialize the GET message
 		key := [32]byte{}
 		getMsg := message.NewDHTGetMessage(key)
 		serializedMsg, err := getMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
-		conn.readData = serializedMsg
 
-		api.HandleConnection(conn, &mockNode.Node)
+		// Prepend the node ID to the serialized message
+		conn.readData = append(nodeID, serializedMsg...)
+		api.HandlePeerConnection(conn, &mockNode.Node)
 		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
 	})
 
 	t.Run("TestHandlePing", func(t *testing.T) {
+		// Prepare a 32-byte node ID
+		nodeID := make([]byte, 32)
+		copy(nodeID, []byte("my-node-id"))
+
+		// Serialize the PING message
 		pingMsg := message.NewDHTPingMessage()
 		serializedMsg, err := pingMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
-		conn.readData = serializedMsg
 
-		api.HandleConnection(conn, &mockNode.Node)
+		// Prepend the node ID to the serialized message
+		conn.readData = append(nodeID, serializedMsg...)
+		api.HandlePeerConnection(conn, &mockNode.Node)
 		assert.Greater(t, len(conn.writeData), 0, "Expected writeData to have at least 1 byte, got 0 bytes")
 	})
 
 	t.Run("TestHandleInvalidMessage", func(t *testing.T) {
-		conn.readData = []byte{0x00, 0x01} // Invalid data
-		api.HandleConnection(conn, &mockNode.Node)
+		// Prepare a 32-byte node ID
+		nodeID := make([]byte, 32)
+		copy(nodeID, []byte("my-node-id"))
+
+		// Prepend the node ID to invalid data (which is also a byte slice)
+		invalidData := []byte{0x00, 0x01} // Invalid data
+
+		// Concatenate the node ID and the invalid data
+		conn.readData = append(nodeID, invalidData...)
+
+		api.HandlePeerConnection(conn, &mockNode.Node)
 		assert.NotEqual(t, 0, len(conn.writeData), "Expected writeData to have a response for an invalid message")
 	})
 }
