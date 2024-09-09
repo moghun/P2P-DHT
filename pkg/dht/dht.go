@@ -260,6 +260,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 	}
 
 	queriedNodes := make(map[string]bool)
+	var queriedShortList []*KNode
 	failedNodes := make(map[string]*KNode)
 
 	for len(shortlist) > 0 {
@@ -272,6 +273,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 				continue
 			}
 			queriedNodes[node.ID] = true
+			queriedShortList = append(queriedShortList, node)
 
 			deserializedResponse, err := d.SendFindNodeMessage(targetID, *node)
 			if err != nil {
@@ -312,13 +314,23 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 			}
 		}
 
-		xorResult, _ := XOR(shortlist[0].ID, targetID)
+		if len(shortlist) == 0 {
+			break
+		}
+
+		xorResult, err := XOR(shortlist[0].ID, targetID)
+		if err != nil {
+			util.Log().Errorf("Error calculating XOR: %v", err)
+			continue
+		}
+
 		if xorResult >= closestNodeDistance { //break if the closest node is not closer than the last closest node
 			break
 		}
 	}
 
 	if len(failedNodes) > 0 {
+		util.Log().Infof("Failed nodes length: %v", len(failedNodes))
 		for i := 0; i < RetryLimit; i++ { // Retry failed nodes
 			for _, node := range failedNodes {
 				if queriedNodes[node.ID] {
@@ -364,11 +376,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 		}
 	}
 
-	if len(failedNodes) > 0 {
-		util.Log().Infof("Failed nodes: %v", failedNodes)
-	}
-
-	return shortlist[:min(len(shortlist), K)], nil
+	return queriedShortList[:min(len(queriedShortList), K)], nil
 }
 
 func (d *DHT) SendFindNodeMessage(targetID string, node KNode) (message.Message, error) {
