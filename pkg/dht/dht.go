@@ -170,6 +170,7 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 
 // GET retrieves a value from the DHT.
 func (d *DHT) GET(key string) (string, []*KNode, error) {
+	key = EnsureKeyHashed(key)
 	value, nodes, err := d.FindValue(key)
 
 	if err != nil {

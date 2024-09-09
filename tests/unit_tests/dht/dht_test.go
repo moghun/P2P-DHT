@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -96,12 +98,12 @@ func TestSendStoreMessage(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	config := &util.Config{
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	go func() {
 		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
@@ -561,12 +563,12 @@ func TestPut(t *testing.T) {
 	}
 
 	config := &util.Config{
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	go func() {
 		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
@@ -623,4 +625,230 @@ func TestPut(t *testing.T) {
 
 	assert.NotEqual(t, "", val, "GET should return a non-empty value")
 	assert.Equal(t, "value", val, "GET should return the correct value")
+}
+
+func TestIterativeFindValue(t *testing.T) {
+	// Set up the receiver node and its network
+	receiverPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	nodeId := "id0"
+	hashedNodeId := dht.EnsureKeyHashed(nodeId)
+	receiverDht.RoutingTable.NodeID = hashedNodeId
+	receiverNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    receiverPort,
+		Storage: receiverStore,
+		DHT:     receiverDht,
+	}
+	receiverNode.ID = hashedNodeId
+
+	// Set up the sender node and its network
+	senderPort, err := tests.GetFreePort()
+	assert.NoError(t, err, "Failed to get a free port")
+
+	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	nodeId2 := "id20"
+	hashedNodeId2 := dht.EnsureKeyHashed(nodeId2)
+	senderDht.RoutingTable.NodeID = hashedNodeId2
+
+	senderNode := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    senderPort,
+		Storage: senderStore,
+		DHT:     senderDht,
+	}
+	senderNode.ID = hashedNodeId2
+
+	strKey := "targetKey"
+	strKeyHashed := dht.EnsureKeyHashed(strKey)
+
+	util.Log().Info("Starting intermediate nodes")
+	iNode1 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 120)
+	senderDht.RoutingTable.AddNode(GetKNodeOfNode(iNode1))
+	iNode2 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 100)
+	iNode1.DHT.RoutingTable.AddNode(GetKNodeOfNode(iNode2))
+	iNode3 := CreateAndStartNodeWithGivenDistance(strKeyHashed, 80)
+	iNode2.DHT.RoutingTable.AddNode(GetKNodeOfNode(iNode3))
+	iNode3.DHT.RoutingTable.AddNode(GetKNodeOfNode(receiverNode))
+
+	config := &util.Config{
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
+
+	go func() {
+		err := api.StartServer(receiverNode.IP+":"+fmt.Sprint(receiverPort), receiverNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	go func() {
+		err := api.StartServer(senderNode.IP+":"+fmt.Sprint(senderPort), senderNode)
+		assert.NoError(t, err, "Failed to start API server")
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	targetValue := "targetValue"
+
+	err = receiverDht.StoreToStorage(strKeyHashed, targetValue, 3600) //Store target value to receiver
+	assert.NoError(t, err, "Store should not return an error")
+
+	log.Print("Waiting for 2 seconds for Store and node assignments to complete")
+	time.Sleep(2 * time.Second)
+
+	val, closestNodes, err := receiverDht.GET(strKeyHashed) //Check if targetvalue is successfully stored
+	if err != nil {
+		assert.NoError(t, err, "GET should not return an error")
+	}
+
+	if val != "" {
+		log.Print("Value found in storage, control OK:", val)
+	} else {
+		log.Print("Value has not been stored, nodes length: ", len(closestNodes))
+		for _, node := range closestNodes {
+			log.Print("ID:", node.ID)
+		}
+	}
+
+	assert.NotEqual(t, "", val, "GET should return a non-empty value")
+	assert.Equal(t, targetValue, val, "GET should return the correct value")
+
+	log.Print("Starting iterative find value")
+	finalValue, finalNodes, err := senderDht.IterativeFindValue(strKeyHashed)
+
+	assert.NoError(t, err, "IterativeFindValue should not return an error")
+	util.Log().Info("Final nodes should be empty, nodes length:", len(finalNodes))
+	assert.NotEqual(t, "", finalValue, "IterativeFindValue should return a non-empty value")
+	assert.Equal(t, targetValue, finalValue, "IterativeFindValue should return the correct value")
+}
+
+func CreateAndStartNode(id string) *node.Node {
+	intermediatePort, err := tests.GetFreePort()
+	if err != nil {
+		log.Print("Failed to get a free port")
+		return nil
+	}
+
+	intermediateDht1 := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", intermediatePort)
+	intermediateStore1 := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	intermediateNodeId1 := id
+	intermediateHashedNodeId1 := dht.EnsureKeyHashed(intermediateNodeId1)
+	intermediateDht1.RoutingTable.NodeID = intermediateHashedNodeId1
+
+	intermediateNode1 := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    intermediatePort,
+		Storage: intermediateStore1,
+		DHT:     intermediateDht1,
+	}
+	intermediateNode1.ID = intermediateHashedNodeId1
+
+	go func() {
+		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), intermediateNode1)
+	}()
+
+	time.Sleep(2 * time.Second)
+	util.Log().Info("Intermediate node started, id: ", intermediateDht1.RoutingTable.NodeID)
+	return intermediateNode1
+}
+
+func GetKNodeOfNode(node *node.Node) *dht.KNode {
+	return &dht.KNode{
+		ID:   node.ID,
+		IP:   node.IP,
+		Port: node.Port,
+	}
+}
+
+// flipBitInHex flips a bit at the given bit position in a hex-encoded string
+func flipBitInHex(hexString string, bitIndex int) string {
+	// Convert the hex string back to a byte array
+	bytes, _ := hex.DecodeString(hexString)
+
+	// Calculate byte index and bit position within the byte
+	byteIndex := bitIndex / 8
+	bitPosition := bitIndex % 8
+
+	// Flip the bit at the given position
+	bytes[byteIndex] ^= (1 << (7 - bitPosition))
+
+	// Convert back to hex string
+	return hex.EncodeToString(bytes)
+}
+
+// generateHammingDistanceString generates a string with a specified Hamming distance from the input
+func generateHammingDistanceString(input string, distance int) string {
+	rand.Seed(time.Now().UnixNano())
+
+	// The input is a hex string, so it has 160 bits (since it's 40 hex characters)
+	totalBits := len(input) * 4 // 4 bits per hex character
+
+	if distance > totalBits {
+		panic("Hamming distance is greater than the total number of bits in the input string.")
+	}
+
+	// Track which bits have already been flipped to avoid flipping the same bit twice
+	flippedBits := make(map[int]bool)
+
+	// Mutable copy of the input string
+	output := input
+
+	// Randomly flip 'distance' bits
+	for i := 0; i < distance; i++ {
+		for {
+			// Randomly choose a bit to flip
+			bitIndex := rand.Intn(totalBits)
+
+			// If the bit is already flipped, choose another
+			if flippedBits[bitIndex] {
+				continue
+			}
+
+			// Flip the bit in the output string
+			output = flipBitInHex(output, bitIndex)
+
+			// Mark the bit as flipped
+			flippedBits[bitIndex] = true
+
+			break
+		}
+	}
+
+	return output
+}
+
+func CreateAndStartNodeWithGivenDistance(originID string, distance int) *node.Node {
+	intermediatePort, err := tests.GetFreePort()
+	if err != nil {
+		log.Print("Failed to get a free port")
+		return nil
+	}
+
+	intermediateDht1 := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", intermediatePort)
+	intermediateStore1 := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	intermediateHashedNodeId1 := generateHammingDistanceString(originID, distance)
+	intermediateDht1.RoutingTable.NodeID = intermediateHashedNodeId1
+
+	intermediateNode1 := &node.Node{
+		IP:      "127.0.0.1",
+		Port:    intermediatePort,
+		Storage: intermediateStore1,
+		DHT:     intermediateDht1,
+	}
+	intermediateNode1.ID = intermediateHashedNodeId1
+
+	go func() {
+		_ = api.StartServer(intermediateNode1.IP+":"+fmt.Sprint(intermediateNode1.Port), intermediateNode1)
+	}()
+
+	time.Sleep(2 * time.Second)
+	util.Log().Info("Intermediate node started, id: ", intermediateDht1.RoutingTable.NodeID)
+	return intermediateNode1
 }

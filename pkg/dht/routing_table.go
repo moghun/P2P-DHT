@@ -58,7 +58,7 @@ func (rt *RoutingTable) AddNode(targetID *KNode) {
 		log.Print("Bucket Index is 0")
 		return
 	}
-	util.Log().Infof("Bucket Index: %d", bucketIndex)
+	util.Log().Infof("Adding Node Bucket Index: %d", bucketIndex)
 	bucket := rt.Buckets[bucketIndex]
 
 	bucket.AddNode(targetID)
@@ -87,20 +87,26 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 		// If the bucket has less than k nodes, include nodes from other buckets
 		//TODO would we ever need to check more than Alpha*2 buckets?
 		log.Print("Bucket has less than K nodes, no nodes: ", len(nodes))
-		for i := 1; i <= Alpha; i++ {
+		util.Log().Info("Starting to check other buckets, iterating outwards")
+		for i := 1; i <= 161; i++ {
 			if bucketIndex-i >= 0 {
 				nodes = append(nodes, rt.Buckets[bucketIndex-i].GetNodes()...)
 				if len(nodes) >= K {
 					break
 				}
+			} else {
+				continue
 			}
 			if bucketIndex+i < IDLength {
 				nodes = append(nodes, rt.Buckets[bucketIndex+i].GetNodes()...)
 				if len(nodes) >= K {
 					break
 				}
+			} else {
+				continue
 			}
 		}
+		util.Log().Info("Finished checking other buckets, length of nodes: ", len(nodes))
 	}
 
 	SortNodes(nodes, targetID)
@@ -117,7 +123,7 @@ func (rt *RoutingTable) GetClosestNodes(targetID string) ([]*KNode, error) {
 func XORDistance(id1, id2 string) (*big.Int, error) {
 	// Ensure both IDs have the same length
 	if len(id1) != len(id2) {
-		return nil, errors.New("IDs must have the same length")
+		return nil, fmt.Errorf("IDs must have the same length, current lengths: %d, %d", len(id1), len(id2))
 	}
 
 	// Ensure both IDs are valid hexadecimal strings
