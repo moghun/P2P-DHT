@@ -36,7 +36,7 @@ func HandlePut(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 	if err != nil {
 		util.Log().Errorf("Error processing PUT in DHT: %v", err)
-		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(putMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	}
 
@@ -68,10 +68,10 @@ func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	<-done
 
 	if err != nil {
-		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	} else if value == "" && nodes == nil {
-		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(getMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	}
 
@@ -92,6 +92,7 @@ func HandlePing(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findNodeMsg := msg.(*message.DHTFindNodeMessage)
+	node := nodeInstance.(*node.Node)
 
 	var nodes []*dht.KNode
 	var err error
@@ -113,7 +114,7 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 	if err != nil || nodes == nil {
 		util.Log().Errorf("Error processing FIND_NODE in DHT: %v", err)
 
-		failureMsg, _ := message.NewDHTFailureMessage(findNodeMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(findNodeMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	} else {
 		successResponse := dht.SuccessMessageResponse{
@@ -128,6 +129,7 @@ func HandleFindNode(msg message.Message, nodeInstance node.NodeInterface) []byte
 
 func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	findValueMsg := msg.(*message.DHTFindValueMessage)
+	node := nodeInstance.(*node.Node)
 
 	var value string
 	var nodes []*dht.KNode
@@ -155,7 +157,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 			util.Log().Errorf("Error processing FIND_VALUE in DHT (2): Both Value and Nodes came back empty")
 		}
 
-		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	} else {
 		successResponse := dht.SuccessMessageResponse{
@@ -170,7 +172,7 @@ func HandleFindValue(msg message.Message, nodeInstance node.NodeInterface) []byt
 		} else {
 			util.Log().Errorf("Error processing FIND_VALUE in DHT: %v", err)
 
-			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key).Serialize()
+			failureMsg, _ := message.NewDHTFailureMessage(findValueMsg.Key, []byte(node.GetID())).Serialize()
 			return failureMsg
 		}
 	}
@@ -201,7 +203,7 @@ func HandleStore(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 	if err != nil {
 		util.Log().Errorf("Error processing STORE in DHT: %v", err)
-		failureMsg, _ := message.NewDHTFailureMessage(storeMsg.Key).Serialize()
+		failureMsg, _ := message.NewDHTFailureMessage(storeMsg.Key, []byte(node.GetID())).Serialize()
 		return failureMsg
 	}
 

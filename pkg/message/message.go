@@ -75,7 +75,7 @@ func CreateMessage(msgType int, data []byte) (Message, error) {
 	case DHT_SUCCESS:
 		return NewDHTSuccessMessage([32]byte{}, data), nil // Placeholder for initialization
 	case DHT_FAILURE:
-		return NewDHTFailureMessage([32]byte{}), nil // Placeholder for initialization
+		return NewDHTFailureMessage([32]byte{}, data), nil // Placeholder for initialization
 	case DHT_PING:
 		return NewDHTPingMessage(), nil
 	case DHT_PONG:

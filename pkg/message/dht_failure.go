@@ -8,15 +8,17 @@ import (
 type DHTFailureMessage struct {
 	BaseMessage
 	Key [32]byte
+	ID  []byte
 }
 
-func NewDHTFailureMessage(key [32]byte) *DHTFailureMessage {
+func NewDHTFailureMessage(key [32]byte, id []byte) *DHTFailureMessage {
 	return &DHTFailureMessage{
 		BaseMessage: BaseMessage{
 			Size: 36,
 			Type: DHT_FAILURE,
 		},
 		Key: key,
+		ID:  id,
 	}
 }
 
@@ -28,6 +30,9 @@ func (m *DHTFailureMessage) Serialize() ([]byte, error) {
 	if _, err := buf.Write(m.Key[:]); err != nil {
 		return nil, err
 	}
+	if _, err := buf.Write(m.ID[:]); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
@@ -37,6 +42,9 @@ func (m *DHTFailureMessage) Deserialize(data []byte) (Message, error) {
 	}
 	reader := bytes.NewReader(data[4:])
 	if err := binary.Read(reader, binary.BigEndian, &m.Key); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &m.ID); err != nil {
 		return nil, err
 	}
 	return m, nil

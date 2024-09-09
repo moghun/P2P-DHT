@@ -110,7 +110,9 @@ func TestDHTFindNodeMessage(t *testing.T) {
 
 func TestDHTFailureMessage(t *testing.T) {
 	key := [32]byte{}
-	msg := message.NewDHTFailureMessage(key)
+	idStr := "testId"
+	hashedId := dht.EnsureKeyHashed(idStr)
+	msg := message.NewDHTFailureMessage(key, []byte(hashedId))
 
 	serialized, err := msg.Serialize()
 	assert.NoError(t, err)
@@ -119,6 +121,7 @@ func TestDHTFailureMessage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.IsType(t, &message.DHTFailureMessage{}, deserializedMsg)
 
+	assert.Equal(t, msg.ID, deserializedMsg.(*message.DHTFailureMessage).ID)
 	assert.Equal(t, msg.Key, deserializedMsg.(*message.DHTFailureMessage).Key)
 }
 
