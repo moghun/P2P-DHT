@@ -37,9 +37,12 @@ func LoadConfig(filename string) *Config {
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
 	ttl, _ := cfg.Section("node").Key("cleanup_interval").Int()
 
-	// Load bootstrap retry settings
 	bootstrapRetryInterval, _ := cfg.Section("node").Key("bootstrap_retry_interval").Int()
 	maxBootstrapRetries, _ := cfg.Section("node").Key("max_bootstrap_retries").Int()
+
+	// Load bootstrap retry settings
+	rateLimiterRate, _ := cfg.Section("rate_limiter").Key("requests_per_second").Int()
+	rateLimiterBurst, _ := cfg.Section("rate_limiter").Key("burst_size").Int()
 
 	// Convert interval to time.Duration
 	retryInterval := time.Duration(bootstrapRetryInterval) * time.Second
@@ -51,6 +54,8 @@ func LoadConfig(filename string) *Config {
 		EncryptionKey:         encryptionKey,
 		TTL:                   ttl,
 		Difficulty:            cfg.Section("security").Key("difficulty").MustInt(4),
+		RateLimiterRate:	rateLimiterRate,
+		RateLimiterBurst:	rateLimiterBurst,
 		BootstrapRetryInterval: retryInterval,
 		MaxBootstrapRetries:    maxBootstrapRetries,
 		BootstrapNodes:        bootstrapNodes,
