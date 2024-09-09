@@ -14,7 +14,6 @@ func TestLoadConfig(t *testing.T) {
 	configContent := `
 		[node]
 		p2p_address = 127.0.0.1:8000
-		api_address = 127.0.0.1:9000
 		ttl = 1000000
 		[security]
 		encryption_key = 1234567890abcdef
@@ -35,7 +34,6 @@ func TestLoadConfig(t *testing.T) {
 
 	// Assert the loaded config values
 	assert.Equal(t, "127.0.0.1:8000", config.P2PAddress)
-	assert.Equal(t, "127.0.0.1:9000", config.APIAddress)
 	assert.Equal(t, []byte("1234567890abcdef"), config.EncryptionKey)
 	assert.Equal(t, 1000000, config.TTL)
 	assert.Len(t, config.BootstrapNodes, 2)
