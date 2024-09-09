@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
@@ -29,7 +30,7 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 				continue
 			}
 			go WithMiddleware(func(c net.Conn) {
-				HandleConnection(c, nodeInstance)  // true means TLS connection
+				HandleConnection(c, nodeInstance) // true means TLS connection
 			})(conn)
 		}
 	}()
@@ -53,7 +54,7 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 					continue
 				}
 				go WithMiddleware(func(c net.Conn) {
-					HandleConnection(c, nodeInstance)  // false means non-TLS connection
+					HandleConnection(c, nodeInstance) // false means non-TLS connection
 				})(conn)
 			}
 		}()
@@ -66,6 +67,21 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 // HandleConnection processes incoming TLS connections and dispatches messages
 func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 	defer conn.Close()
+
+	// Extract the IP and Port of the client sending the message
+	clientAddr := conn.RemoteAddr().String()
+	util.Log().Infof("Connection established from %s", clientAddr)
+	ip, port, err := net.SplitHostPort(clientAddr)
+	if err != nil {
+		util.Log().Errorf("Failed to split host and port: %v", err)
+	}
+
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		util.Log().Errorf("Error converting port to int: %v", err)
+	}
+
+	util.Log().Infof("IP: %s, Port: %d\n, ID: %s", ip, portInt, nodeInstance.GetID())
 
 	for {
 		buf := make([]byte, 1024)
