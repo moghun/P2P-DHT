@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -20,22 +21,22 @@ type NodeInterface interface {
 	FindNode(targetID string) ([]*dht.KNode, error)
 	FindValue(targetKeyID string) (string, []*dht.KNode, error)
 	AddPeer(nodeID, ip string, port int)
-	GetAllPeers() []*Node
+	GetAllPeers() []*dht.KNode
 	GetID() string
 }
 
 type Node struct {
-	ID      string
-	IP      string
-	Port    int
-	Nonce   int
-	Ping    bool
-	DHT     *dht.DHT
-	Storage *storage.Storage
-	Network message.NetworkInterface
-	Config  *util.Config
-	IsDown  bool
-	mu      sync.Mutex
+	ID           string
+	IP           string
+	Port         int
+	Nonce        int
+	Ping         bool
+	DHT          *dht.DHT
+	Storage      *storage.Storage
+	Network      message.NetworkInterface
+	Config       *util.Config
+	IsDown       bool
+	mu           sync.Mutex
 }
 
 func NewNode(config *util.Config, ttl time.Duration) *Node {
@@ -46,15 +47,15 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 	id, nonce := security.GenerateNodeIDWithPoW(ip, port)
 
 	node := &Node{
-		ID:      id,
-		IP:      ip,
-		Port:    port,
-		Nonce:   nonce,
-		Ping:    true,
-		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
-		Storage: storage.NewStorage(ttl, config.EncryptionKey),
-		IsDown:  false,
-		Config:  config, // Set the configuration
+		ID:           id,
+		IP:           ip,
+		Port:         port,
+		Nonce:        nonce,
+		Ping:         true,
+		DHT:          dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
+		Storage:      storage.NewStorage(ttl, config.EncryptionKey),
+		IsDown:       false,
+		Config:       config, // Set the configuration
 	}
 
 	node.Network = message.NewNetwork(ip, id, port)
@@ -97,18 +98,20 @@ func (n *Node) GetID() string {
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	// Validate the node ID using PoW before adding the peer
 	if security.ValidateNodeIDWithPoW(ip, port, nodeID, n.Nonce) {
-		// Add the peer if validation passes
-		// Add peer logic here...
+		kNode := &dht.KNode{ID: nodeID, IP: ip, Port: port}
+		n.DHT.RoutingTable.AddNode(kNode)
 	}
 }
 
 // RemovePeer is a placeholder for removing a peer from the node's routing table (mocked for now).
-func (n *Node) RemovePeer(ip string, port int) {
+func (n *Node) RemovePeer(id string) {
+	n.DHT.RoutingTable.RemoveNode(id)
 }
 
 // GetAllPeers is a placeholder for retrieving all peers from the node's routing table (mocked for now).
-func (n *Node) GetAllPeers() []*Node {
-	return nil
+func (n *Node) GetAllPeers() []*dht.KNode {
+	allPeers, _ := n.DHT.RoutingTable.GetAllNodes()
+	return allPeers
 }
 
 // GetClosestNodesToCurrNode is a placeholder for getting the closest nodes to the current node (mocked for now).
@@ -121,7 +124,17 @@ func (n *Node) GetClosestNodesToCurrNode(targetID string, k int) []*Node {
 func GenerateNodeID(ip string, port int) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
-	return hex.EncodeToString(h.Sum(nil))
+
+	data := fmt.Sprintf("%s:%d", ip, port)
+	hash := sha256.Sum256([]byte(data))
+
+	// Truncate to the first 160 bits (20 bytes) of the SHA-256 hash
+	truncatedHash := hash[:20]
+
+	// Convert truncated hash to hexadecimal string
+	hashStr := hex.EncodeToString(truncatedHash)
+
+	return hashStr
 }
 
 /**************************/

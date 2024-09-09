@@ -6,16 +6,17 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
 // LivelinessChecker is responsible for checking the liveliness of peers in the network.
 type LivelinessChecker struct {
-	node      *Node
-	interval  time.Duration
-	timeout   time.Duration
-	mu        sync.Mutex
-	quitChan  chan struct{}
+	node     *Node
+	interval time.Duration
+	timeout  time.Duration
+	mu       sync.Mutex
+	quitChan chan struct{}
 }
 
 // NewLivelinessChecker creates a new LivelinessChecker with the specified interval and timeout durations.
@@ -55,15 +56,14 @@ func (lc *LivelinessChecker) Stop() {
 func (lc *LivelinessChecker) checkLiveliness() {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
-
 	peers := lc.node.GetAllPeers()
 
 	for _, peer := range peers {
-		go func(peer *Node) {
-			err := lc.pingPeer(peer)
+		go func(peer *dht.KNode) {
+			err := lc.pingPeer(peer.IP, peer.ID, peer.Port)
 			if err != nil {
 				log.Printf("Peer %s did not respond, removing from known peers.\n", peer.ID)
-				lc.node.RemovePeer(peer.IP, peer.Port)
+				lc.node.RemovePeer(peer.ID)
 			} else {
 				log.Printf("Peer %s is alive.\n", peer.ID)
 			}
@@ -72,7 +72,7 @@ func (lc *LivelinessChecker) checkLiveliness() {
 }
 
 // pingPeer sends a ping message to a peer and waits for a response. If no response is received within the timeout, an error is returned.
-func (lc *LivelinessChecker) pingPeer(peer *Node) error {
+func (lc *LivelinessChecker) pingPeer(peerIP, peerID string, peerPort int) error {
 	pingMsg := message.NewDHTPingMessage()
 	serializedPingMsg, err := pingMsg.Serialize()
 	if err != nil {
@@ -83,7 +83,7 @@ func (lc *LivelinessChecker) pingPeer(peer *Node) error {
 
 	// Send the ping in a separate goroutine and wait for the response.
 	go func() {
-		_, err := lc.node.Network.SendMessage(peer.IP, peer.Port, serializedPingMsg)
+		_, err := lc.node.Network.SendMessage(peerIP, peerPort, serializedPingMsg)
 		responseChan <- err
 	}()
 
@@ -95,6 +95,6 @@ func (lc *LivelinessChecker) pingPeer(peer *Node) error {
 		}
 		return nil
 	case <-time.After(lc.timeout):
-		return fmt.Errorf("timeout waiting for response from peer %s", peer.ID)
+		return fmt.Errorf("timeout waiting for response from peer %s", peerID)
 	}
 }

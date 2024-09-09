@@ -34,6 +34,20 @@ func NewRoutingTable(nodeID string) *RoutingTable {
 	return rt
 }
 
+func (rt *RoutingTable) GetAllNodes() ([]*KNode, error) {
+	var allNodes []*KNode
+	for _, bucket := range rt.Buckets {
+		nodes := bucket.GetNodes()
+		allNodes = append(allNodes, nodes...)
+	}
+
+	if len(allNodes) == 0 {
+		return nil, errors.New("no nodes in the routing table")
+	}
+
+	return allNodes, nil
+}
+
 // AddNode adds a node to the appropriate KBucket.
 func (rt *RoutingTable) AddNode(targetID *KNode) {
 	log.Print("Adding node to routing table: ", targetID.ID)
