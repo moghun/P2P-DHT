@@ -47,6 +47,8 @@ RUN chown -R appuser:appuser /app
 # Switch to the non-root user
 USER appuser
 
+# Expose port 7400 for API communication
+EXPOSE 7400/tcp
 # Expose port 8000 for P2P communication
 EXPOSE 8000/tcp
 
