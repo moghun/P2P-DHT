@@ -20,11 +20,11 @@ func TestBootstrapScenario(t *testing.T) {
 	assert.NoError(t, err)
 
 	bootstrapConfig := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", bootstrapPort),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
-		RateLimiterRate:  10,
-		RateLimiterBurst: 20,
-		Difficulty: 4,
+		P2PAddress:          fmt.Sprintf("127.0.0.1:%d", bootstrapPort),
+		EncryptionKey:       []byte("12345678901234567890123456789012"),
+		RateLimiterRate:     10,
+		RateLimiterBurst:    20,
+		Difficulty:          4,
 		MaxBootstrapRetries: 2,
 	}
 	api.InitRateLimiter(bootstrapConfig)
@@ -39,11 +39,11 @@ func TestBootstrapScenario(t *testing.T) {
 	assert.NoError(t, err)
 
 	peer1Config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", peer1Port),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
-		RateLimiterRate:  10,
-		RateLimiterBurst: 20,
-		Difficulty: 4,
+		P2PAddress:          fmt.Sprintf("127.0.0.1:%d", peer1Port),
+		EncryptionKey:       []byte("12345678901234567890123456789012"),
+		RateLimiterRate:     10,
+		RateLimiterBurst:    20,
+		Difficulty:          4,
 		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: bootstrapPort},
@@ -67,11 +67,11 @@ func TestBootstrapScenario(t *testing.T) {
 	assert.NoError(t, err)
 
 	peer2Config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", peer2Port),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
-		RateLimiterRate:  10,
-		RateLimiterBurst: 20,
-		Difficulty: 4,
+		P2PAddress:          fmt.Sprintf("127.0.0.1:%d", peer2Port),
+		EncryptionKey:       []byte("12345678901234567890123456789012"),
+		RateLimiterRate:     10,
+		RateLimiterBurst:    20,
+		Difficulty:          4,
 		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: bootstrapPort},
@@ -81,7 +81,7 @@ func TestBootstrapScenario(t *testing.T) {
 	api.InitRateLimiter(peer2Config)
 	peer2Node := node.NewNode(peer2Config, 86400)
 	util.Log().Printf("***  Node-2 (%s) running at: %s  ***", peer2Node.ID, peer2Config.P2PAddress)
-	go api.StartServer(peer2Config.P2PAddress, "",peer2Node)
+	go api.StartServer(peer2Config.P2PAddress, "", peer2Node)
 
 	// Bootstrap peer2 with the bootstrap_node
 	err = peer2Node.Bootstrap()
@@ -117,7 +117,7 @@ func TestBootstrapScenario(t *testing.T) {
 	assert.Equal(t, value, successPutMsg.Value)
 
 	// Step 5: Second node sends a GET request to the first node to retrieve the value
-	getMsg := message.NewDHTGetMessage(byteKey)
+	getMsg := message.NewDHTGetMessage(byteKey, []byte(peer2Node.GetID()))
 	serializedGetMsg, err := getMsg.Serialize()
 	assert.NoError(t, err)
 

@@ -76,7 +76,7 @@ func TestHandleGet(t *testing.T) {
 	byte32Key, err := message.HexStringToByte32(hashedKey)
 	assert.NoError(t, err)
 
-	getMsg := message.NewDHTGetMessage(byte32Key)
+	getMsg := message.NewDHTGetMessage(byte32Key, []byte(hashedNodeId))
 	serializedMsg, err := getMsg.Serialize()
 	log.Print(serializedMsg)
 	assert.NoError(t, err)

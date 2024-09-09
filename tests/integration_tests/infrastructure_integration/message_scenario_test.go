@@ -19,14 +19,14 @@ func TestPingPongIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, "", mockNode)
@@ -60,14 +60,14 @@ func TestPutMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, "", mockNode)
@@ -106,14 +106,14 @@ func TestGetMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, "", mockNode)
@@ -137,7 +137,7 @@ func TestGetMessageIntegration(t *testing.T) {
 	time.Sleep(1 * time.Second) // Ensure the PUT is processed
 
 	// Now, send a DHT_GET message
-	getMsg := message.NewDHTGetMessage(key)
+	getMsg := message.NewDHTGetMessage(key, []byte(mockNode.GetID()))
 	serializedGetMsg, err := getMsg.Serialize()
 	assert.NoError(t, err)
 
@@ -162,17 +162,17 @@ func TestPutGetIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 86400)
-	go api.StartServer(config.P2PAddress, "",mockNode)
+	go api.StartServer(config.P2PAddress, "", mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -209,7 +209,7 @@ func TestPutGetIntegration(t *testing.T) {
 	assert.Equal(t, value, successMsg.Value)
 
 	// 3. Send DHT_GET message
-	getMsg := message.NewDHTGetMessage(byte32Key)
+	getMsg := message.NewDHTGetMessage(byte32Key, []byte(mockNode.GetID()))
 	serializedGetMsg, err := getMsg.Serialize()
 	assert.NoError(t, err)
 
@@ -238,17 +238,17 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-    api.InitRateLimiter(config)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 86400)
-	go api.StartServer(config.P2PAddress, "",mockNode)
+	go api.StartServer(config.P2PAddress, "", mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
 
@@ -258,7 +258,7 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	// 1. Send DHT_GET message for a non-existent key
 	var key [32]byte
 	copy(key[:], []byte("nonexistentkey"))
-	getMsg := message.NewDHTGetMessage(key)
+	getMsg := message.NewDHTGetMessage(key, []byte(mockNode.GetID()))
 	serializedGetMsg, err := getMsg.Serialize()
 	assert.NoError(t, err)
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
@@ -33,13 +34,12 @@ func TestStartServer(t *testing.T) {
 	mockNode := NewMockNode("127.0.0.1", port)
 
 	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
-        RateLimiterRate:  10,
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
-    }
-
+		Difficulty:       4,
+	}
 
 	go func() {
 		api.InitRateLimiter(config)
@@ -100,7 +100,9 @@ func TestHandleConnection(t *testing.T) {
 
 	t.Run("TestHandleGet", func(t *testing.T) {
 		key := [32]byte{}
-		getMsg := message.NewDHTGetMessage(key)
+		id := "testId"
+		hashedId := dht.EnsureKeyHashed(id)
+		getMsg := message.NewDHTGetMessage(key, []byte(hashedId))
 		serializedMsg, err := getMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
 		conn.readData = serializedMsg
