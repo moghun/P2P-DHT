@@ -18,25 +18,25 @@ import (
 type NodeInterface interface {
 	Put(key, value string, ttl int) error
 	Get(key string) (string, error)
-	FindNode(originID string, targetID string) ([]*dht.KNode, error)
-	FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error)
+	FindNode(targetID string) ([]*dht.KNode, error)
+	FindValue(targetKeyID string) (string, []*dht.KNode, error)
 	AddPeer(nodeID, ip string, port int)
-	GetAllPeers() []*Node
+	GetAllPeers() []*dht.KNode
 	GetID() string
 }
 
 type Node struct {
-	ID      string
-	IP      string
-	Port    int
-	Nonce   int
-	Ping    bool
-	DHT     *dht.DHT
-	Storage *storage.Storage
-	Network message.NetworkInterface
-	Config  *util.Config
-	IsDown  bool
-	mu      sync.Mutex
+	ID           string
+	IP           string
+	Port         int
+	Nonce        int
+	Ping         bool
+	DHT          *dht.DHT
+	Storage      *storage.Storage
+	Network      message.NetworkInterface
+	Config       *util.Config
+	IsDown       bool
+	mu           sync.Mutex
 }
 
 func NewNode(config *util.Config, cleanup_interval time.Duration) *Node {
@@ -88,12 +88,16 @@ func (n *Node) Get(key string) (string, error) {
 	return value, nil
 }
 
-func (n *Node) FindNode(originID string, targetID string) ([]*dht.KNode, error) {
-	return n.DHT.FindNode(originID, targetID)
+func (n *Node) FindNode(targetID string) ([]*dht.KNode, error) {
+	nodes, err := n.DHT.FindNode(targetID)
+	if err != nil {
+		return nil, err
+	}
+	return nodes, nil
 }
 
-func (n *Node) FindValue(originID string, targetKeyID string) (string, []*dht.KNode, error) {
-	return n.DHT.FindValue(originID, targetKeyID)
+func (n *Node) FindValue(targetKeyID string) (string, []*dht.KNode, error) {
+	return n.DHT.FindValue(targetKeyID)
 }
 
 func (n *Node) GetID() string {
@@ -103,15 +107,21 @@ func (n *Node) GetID() string {
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	// Validate the node ID using PoW before adding the peer
+	if security.ValidateNodeIDWithPoW(ip, port, nodeID, n.Nonce, n.Config.Difficulty) {
+		kNode := &dht.KNode{ID: nodeID, IP: ip, Port: port}
+		n.DHT.RoutingTable.AddNode(kNode)
+	}
 }
 
 // RemovePeer is a placeholder for removing a peer from the node's routing table (mocked for now).
-func (n *Node) RemovePeer(ip string, port int) {
+func (n *Node) RemovePeer(id string) {
+	n.DHT.RoutingTable.RemoveNode(id)
 }
 
 // GetAllPeers is a placeholder for retrieving all peers from the node's routing table (mocked for now).
-func (n *Node) GetAllPeers() []*Node {
-	return nil
+func (n *Node) GetAllPeers() []*dht.KNode {
+	allPeers, _ := n.DHT.RoutingTable.GetAllNodes()
+	return allPeers
 }
 
 // GetClosestNodesToCurrNode is a placeholder for getting the closest nodes to the current node (mocked for now).
@@ -124,7 +134,17 @@ func (n *Node) GetClosestNodesToCurrNode(targetID string, k int) []*Node {
 func GenerateNodeID(ip string, port int) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%s:%d", ip, port)))
-	return hex.EncodeToString(h.Sum(nil))
+
+	data := fmt.Sprintf("%s:%d", ip, port)
+	hash := sha256.Sum256([]byte(data))
+
+	// Truncate to the first 160 bits (20 bytes) of the SHA-256 hash
+	truncatedHash := hash[:20]
+
+	// Convert truncated hash to hexadecimal string
+	hashStr := hex.EncodeToString(truncatedHash)
+
+	return hashStr
 }
 
 /**************************/
