@@ -86,7 +86,7 @@ func HandleGet(msg message.Message, nodeInstance node.NodeInterface) []byte {
 
 func HandlePing(msg message.Message, nodeInstance node.NodeInterface) []byte {
 	nodeInstance = nodeInstance.(*node.Node)
-	pongMsg, _ := message.NewDHTPongMessage().Serialize()
+	pongMsg, _ := message.NewDHTPongMessage([]byte(nodeInstance.GetID())).Serialize()
 	return pongMsg
 }
 

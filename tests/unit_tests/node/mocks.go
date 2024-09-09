@@ -88,7 +88,8 @@ func (m *MockNetwork) SendMessage(targetIP string, targetPort int, data []byte) 
 		return nil, fmt.Errorf("failed to connect")
 	}
 	// Simulate a successful message send (e.g., a DHT_PONG response)
-	return message.NewDHTPongMessage().Serialize()
+
+	return message.NewDHTPongMessage([]byte("mockid")).Serialize()
 }
 
 func (m *MockNetwork) StartListening() error {

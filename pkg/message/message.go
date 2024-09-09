@@ -79,7 +79,7 @@ func CreateMessage(msgType int, data []byte) (Message, error) {
 	case DHT_PING:
 		return NewDHTPingMessage(data), nil
 	case DHT_PONG:
-		return NewDHTPongMessage(), nil
+		return NewDHTPongMessage(data), nil
 	case DHT_FIND_NODE:
 		return NewDHTFindNodeMessage([32]byte{}, data), nil // Placeholder for initialization
 	case DHT_FIND_VALUE:

@@ -9,15 +9,17 @@ import (
 type DHTPongMessage struct {
 	BaseMessage
 	Timestamp uint64
+	Data      []byte
 }
 
-func NewDHTPongMessage() *DHTPongMessage {
+func NewDHTPongMessage(data []byte) *DHTPongMessage {
 	return &DHTPongMessage{
 		BaseMessage: BaseMessage{
 			Size: 12,
 			Type: DHT_PONG,
 		},
 		Timestamp: uint64(time.Now().UnixNano()),
+		Data:      data,
 	}
 }
 
@@ -29,6 +31,9 @@ func (m *DHTPongMessage) Serialize() ([]byte, error) {
 	if err := binary.Write(buf, binary.BigEndian, m.Timestamp); err != nil {
 		return nil, err
 	}
+	if _, err := buf.Write(m.Data[:]); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
@@ -38,6 +43,9 @@ func (m *DHTPongMessage) Deserialize(data []byte) (Message, error) {
 	}
 	reader := bytes.NewReader(data[4:])
 	if err := binary.Read(reader, binary.BigEndian, &m.Timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(reader, binary.BigEndian, &m.Data); err != nil {
 		return nil, err
 	}
 	return m, nil
