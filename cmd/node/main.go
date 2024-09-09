@@ -12,10 +12,21 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
+const relativeConfigPath = "config.ini"
+
 func main() {
-	// Parse command-line parameters
-	configPath := flag.String("c", "config.ini", "path to configuration file")
+	// Parse command-line parameters for config path
+	configPath := flag.String("c", "", "path to configuration file")
 	flag.Parse()
+
+	// If config path is not provided, fallback to relative config path
+	if *configPath == "" {
+		if _, err := os.Stat(relativeConfigPath); err == nil {
+			*configPath = relativeConfigPath
+		} else {
+			util.Log().Fatal("No valid config file found. Please provide a valid config path.")
+		}
+	}
 
 	// Load configuration
 	config := util.LoadConfig(*configPath)
