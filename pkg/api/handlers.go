@@ -233,18 +233,3 @@ func HandleBootstrap(msg message.Message, nodeInstance node.NodeInterface) []byt
 	bootstrapReplyMsg, _ := message.NewDHTBootstrapReplyMessage([]byte(responseString)).Serialize()
 	return bootstrapReplyMsg
 }
-
-// NOT TODO
-func HandleBootstrapReply(msg message.Message, nodeInstance node.NodeInterface) []byte {
-	bootstrapReplyMsg := msg.(*message.DHTBootstrapReplyMessage)
-	nodeInstance = nodeInstance.(*node.Node)
-
-	nodes := bootstrapReplyMsg.ParseNodes()
-	for _, nodeInfo := range nodes {
-		nodeID := node.GenerateNodeID(nodeInfo.IP, nodeInfo.Port)
-		nodeInstance.AddPeer(nodeID, nodeInfo.IP, nodeInfo.Port)
-		util.Log().Infof("Added node %s:%d to routing table.", nodeInfo.IP, nodeInfo.Port)
-	}
-
-	return nil
-}

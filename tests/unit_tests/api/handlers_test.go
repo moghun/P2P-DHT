@@ -269,22 +269,3 @@ func TestHandleBootstrap(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, message.DHT_BOOTSTRAP_REPLY, deserializedResponse.GetType())
 }
-
-func TestHandleBootstrapReply(t *testing.T) {
-	bootstrapReplyData := "192.168.1.1:8081\n192.168.1.2:8082"
-
-	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
-	realNode := &node.Node{
-		IP:      "127.0.0.1",
-		Port:    8080,
-		Storage: store,
-		DHT:     dht,
-	}
-	bootstrapReplyMsg := message.NewDHTBootstrapReplyMessage([]byte(bootstrapReplyData))
-	_, err := bootstrapReplyMsg.Serialize()
-	assert.NoError(t, err)
-
-	response := api.HandleBootstrapReply(bootstrapReplyMsg, realNode)
-	assert.Nil(t, response)
-}
