@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -71,7 +70,7 @@ func (n *Node) Shutdown() {
 	n.Storage.StopCleanup()
 	n.IsDown = true
 	
-	log.Printf("Node %s shut down successfully.", n.ID)
+	util.Log().Infof("Node %s shut down successfully.", n.ID)
 }
 
 // Put stores a key-value pair in the node's storage with a specified TTL.

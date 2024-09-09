@@ -60,5 +60,5 @@ func (bn *BootstrapNode) Shutdown() {
 	bn.KnownPeers = make(map[string]string) // Clear known peers
 	bn.mu.Unlock()
 
-	fmt.Println("BootstrapNode shut down successfully.")
+	util.Log().Println("BootstrapNode shut down successfully.")
 }

@@ -1,11 +1,11 @@
 package message
 
 import (
-    "fmt"
-    "log"
-    "net"
+	"fmt"
+	"net"
 
-    "gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // NetworkInterface defines the interface for the Network struct
@@ -52,7 +52,7 @@ func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) ([]b
         return nil, fmt.Errorf("failed to read response: %v", err)
     }
 
-    fmt.Printf("Received response from %s: %x\n", address, buf[:response])
+    util.Log().Printf("Received response from %s: %x\n", address, buf[:response])
     return buf[:response], nil
 }
 
@@ -67,12 +67,12 @@ func (n *Network) StartListening() error {
     }
     defer listener.Close()
 
-    fmt.Printf("Node listening on %s (TLS)\n", address)
+    util.Log().Printf("Node listening on %s (TLS)\n", address)
 
     for {
         conn, err := listener.Accept()
         if err != nil {
-            log.Printf("Failed to accept connection: %v", err)
+            util.Log().Errorf("Failed to accept connection: %v", err)
             continue
         }
         go n.handleConnection(conn)
@@ -87,17 +87,17 @@ func (n *Network) handleConnection(conn net.Conn) {
         n, err := conn.Read(buf)
         if err != nil {
             if err.Error() != "EOF" {
-                log.Printf("Error reading from connection: %v", err)
+                util.Log().Errorf("Error reading from connection: %v", err)
             }
             if _, err := conn.Write([]byte("Failed")); err != nil {
-                log.Printf("Failed to send response: %v", err)
+                util.Log().Errorf("Failed to send response: %v", err)
                 return
             }
         }
 
-        fmt.Printf("Received message from %s: %x\n", conn.RemoteAddr().String(), buf[:n])
+        util.Log().Printf("Received message from %s: %x\n", conn.RemoteAddr().String(), buf[:n])
         if _, err := conn.Write([]byte("Success")); err != nil {
-            log.Printf("Failed to send response: %v", err)
+            util.Log().Errorf("Failed to send response: %v", err)
             return
         }
     }

@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -31,14 +29,14 @@ func main() {
 	// Bootstrap the node to join the network
 	err := nodeInstance.Bootstrap()
 	if err != nil {
-		log.Fatalf("Failed to bootstrap node: %v", err)
+		util.Log().Fatalf("Failed to bootstrap node: %v", err)
 	}
 
 	// Start the API server for the node
 	go func() {
 		err := api.StartServer(config.P2PAddress, nodeInstance)
 		if err != nil {
-			log.Fatalf("Failed to start API server: %v", err)
+			util.Log().Fatalf("Failed to start API server: %v", err)
 		}
 	}()
 
@@ -46,7 +44,7 @@ func main() {
 	go func() {
 		err := nodeInstance.Network.StartListening()
 		if err != nil {
-			log.Fatalf("Failed to start node listening: %v", err)
+			util.Log().Fatalf("Failed to start node listening: %v", err)
 		}
 	}()
 
@@ -56,11 +54,11 @@ func main() {
 
 	// Block until a signal is received
 	sig := <-sigChan
-	fmt.Printf("Received signal %s, shutting down...\n", sig)
+	util.Log().Infof("Received signal %s, shutting down...\n", sig)
 
 	// Gracefully shut down the node
 	nodeInstance.Shutdown()
 
 	// Confirm shutdown
-	fmt.Println("Node shut down successfully.")
+	util.Log().Info("Node shut down successfully.")
 }

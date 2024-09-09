@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -35,7 +33,7 @@ func main() {
 	go func() {
 		err := api.StartServer(config.P2PAddress, &bootstrapNodeInstance.Node)
 		if err != nil {
-			log.Fatalf("Failed to start API server: %v", err)
+			util.Log().Fatalf("Failed to start API server: %v", err)
 		}
 	}()
 
@@ -43,7 +41,7 @@ func main() {
 	go func() {
 		err := bootstrapNodeInstance.Network.StartListening()
 		if err != nil {
-			log.Fatalf("Failed to start node listening: %v", err)
+			util.Log().Fatalf("Failed to start node listening: %v", err)
 		}
 	}()
 
@@ -52,11 +50,11 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-sigChan
-	fmt.Printf("Received signal %s, shutting down...\n", sig)
+	util.Log().Infof("Received signal %s, shutting down...\n", sig)
 
 	// Gracefully shut down the BootstrapNode
 	bootstrapNodeInstance.Shutdown()
 
 	// Confirm shutdown
-	fmt.Println("BootstrapNode shut down successfully.")
+	util.Log().Info("BootstrapNode shut down successfully.")
 }

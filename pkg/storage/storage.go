@@ -44,15 +44,15 @@ func (s *Storage) Put(key, value string, ttl int) error {
 
 	encryptedValue, err := util.Encrypt([]byte(value), s.key)
 	if err != nil {
-		log.Printf("Error encrypting value: %v", err)
+		util.Log().Errorf("Error encrypting value: %v", err)
 		return err
 	}
-	log.Printf("Encrypted value: %s", encryptedValue)
+	util.Log().Infof("Encrypted value: %s", encryptedValue)
 
 	hasher := sha1.New()
 	hasher.Write([]byte(encryptedValue))
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	log.Printf("SHA1 hash of encrypted value: %s", hash)
+	util.Log().Infof("SHA1 hash of encrypted value: %s", hash)
 
 	expiry := time.Now().Add(time.Duration(ttl) * time.Second)
 	s.data[key] = &storageItem{
@@ -60,7 +60,7 @@ func (s *Storage) Put(key, value string, ttl int) error {
 		expiry: expiry,
 		hash:   hash,
 	}
-	log.Printf("Stored item: key=%s, value=%s, expiry=%s, hash=%s", key, encryptedValue, expiry.String(), hash)
+	util.Log().Infof("Stored item: key=%s, value=%s, expiry=%s, hash=%s", key, encryptedValue, expiry.String(), hash)
 	return nil
 }
 
@@ -68,16 +68,16 @@ func (s *Storage) Get(key string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	log.Printf("Attempting to retrieve key: %x", key)
+	util.Log().Infof("Attempting to retrieve key: %x", key)
 
 	item, exists := s.data[key]
 	if !exists {
-		log.Printf("Key not found: %x", key)
+		util.Log().Infof("Key not found: %x", key)
 		return "", nil
 	}
 
 	if time.Now().After(item.expiry) {
-		log.Printf("Key expired: %x", key)
+		util.Log().Infof("Key expired: %x", key)
 		delete(s.data, key)
 		return "", nil
 	}
@@ -86,17 +86,17 @@ func (s *Storage) Get(key string) (string, error) {
 	hasher.Write([]byte(item.value))
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	if hash != item.hash {
-		log.Printf("Data integrity check failed for key: %x", key)
+		util.Log().Infof("Data integrity check failed for key: %x", key)
 		return "", errors.New("data integrity check failed")
 	}
 
 	decryptedValue, err := util.Decrypt(item.value, s.key)
 	if err != nil {
-		log.Printf("Error decrypting value: %v", err)
+		util.Log().Errorf("Error decrypting value: %v", err)
 		return "", err
 	}
 
-	log.Printf("Decrypted value for key %x: %s", key, decryptedValue)
+	util.Log().Infof("Decrypted value for key %x: %s", key, decryptedValue)
 	return string(decryptedValue), nil
 }
 func (s *Storage) CleanupExpired() {
@@ -105,7 +105,7 @@ func (s *Storage) CleanupExpired() {
 
 	for key, item := range s.data {
 		if time.Now().After(item.expiry) {
-			log.Printf("Cleaning up expired item with key: %s", key)
+			util.Log().Infof("Cleaning up expired item with key: %s", key)
 			delete(s.data, key)
 		}
 	}
@@ -135,7 +135,7 @@ func (s *Storage) GetAll() map[string]string {
 	for key, item := range s.data {
 		decryptedValue, err := util.Decrypt(item.value, s.key)
 		if err != nil {
-			log.Printf("Error decrypting value for key %s: %v", key, err)
+			util.Log().Errorf("Error decrypting value for key %s: %v", key, err)
 			continue
 		}
 		allData[key] = string(decryptedValue)

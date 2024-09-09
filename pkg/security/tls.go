@@ -9,10 +9,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"math/big"
 	"net"
 	"time"
+
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // GenerateSelfSignedCertificate generates a self-signed TLS certificate for the peer.
@@ -80,7 +81,7 @@ func CreateTLSConfig(peerID string) (*tls.Config, error) {
 			return fmt.Errorf("peer certificate verification failed for peer: %s", cert.Subject.CommonName)
 		}
 
-		log.Printf("Peer certificate verified for peer: %s", cert.Subject.CommonName)
+		util.Log().Infof("Peer certificate verified for peer: %s", cert.Subject.CommonName)
 		return nil
 	}
 
@@ -102,19 +103,19 @@ func StartTLSListener(peerID string, address string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to create TLS config: %v", err)
 	}
 
-	log.Printf("Starting TLS listener on %s for peer %s...\n", address, peerID)
+	util.Log().Infof("Starting TLS listener on %s for peer %s...\n", address, peerID)
 	listener, err := tls.Listen("tcp", address, tlsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start TLS listener: %v", err)
 	}
-	log.Printf("TLS listener started on %s\n", address)
+	util.Log().Infof("TLS listener started on %s\n", address)
 
 	return listener, nil
 }
 
 // DialTLS connects to a peer using TLS for secure communication.
 func DialTLS(peerID string, address string) (net.Conn, error) {
-	log.Printf("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
+	util.Log().Infof("DialTLS: Attempting to connect to %s (%s)\n", peerID, address)
 
 	tlsConfig, err := CreateTLSConfig(peerID)
 	if err != nil {
@@ -123,10 +124,10 @@ func DialTLS(peerID string, address string) (net.Conn, error) {
 
 	conn, err := tls.Dial("tcp", address, tlsConfig)
 	if err != nil {
-		log.Printf("DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
+		util.Log().Errorf("Error: DialTLS: Failed to dial TLS connection to %s: %v\n", address, err)
 		return nil, fmt.Errorf("failed to dial TLS connection: %v", err)
 	}
 
-	log.Printf("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
+	util.Log().Infof("DialTLS: Successfully connected to %s (%s)\n", peerID, address)
 	return conn, nil
 }

@@ -4,14 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"log"
 	"regexp"
 	"sync"
 	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
-
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 )
 
 // DHT represents a Distributed Hash Table.
@@ -35,9 +34,9 @@ func NewDHT(cleanup_interval time.Duration, encryptionKey []byte, id string, ip 
 func HashKey(key string) string {
 	hash := sha256.Sum256([]byte(key))
 	hexEncodedHash := hex.EncodeToString(hash[:20])
-	// log.Print("Hashed key length: ", len(hexEncodedHash))
+	// util.Log().Print("Hashed key length: ", len(hexEncodedHash))
 	// decodedHash, _ := message.HexStringToByte32(hexEncodedHash)
-	// log.Print("Decoded hash length: ", len(decodedHash))
+	// util.Log().Print("Decoded hash length: ", len(decodedHash))
 	return hexEncodedHash // Use the first 160 bits (20 bytes) of the hash
 }
 
@@ -68,7 +67,7 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	failedNodes := make(map[string]*KNode)
 
 	if len(nodesToStore) == 0 {
-		log.Print("No nodes found to store the data, storing on this node")
+		util.Log().Print("No nodes found to store the data, storing on this node")
 		err = d.StoreToStorage(key, value, ttl)
 		if err != nil {
 			return err
@@ -78,10 +77,10 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	for _, node := range nodesToStore {
 		response, err := d.SendStoreMessage(key, value, *node)
 
-		log.Printf("Response: %v", response)
+		util.Log().Infof("Response: %v", response)
 
 		if err != nil {
-			log.Printf("Error sending message: %v", err)
+			util.Log().Errorf("Error sending message: %v", err)
 			return err
 		}
 
@@ -95,7 +94,7 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 			response, err := d.SendStoreMessage(key, value, *node)
 
 			if err != nil {
-				log.Printf("Error sending retry message: %v", err)
+				util.Log().Errorf("Error sending retry message: %v", err)
 				return err
 			}
 
@@ -106,7 +105,7 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 	}
 
 	if len(failedNodes) > 0 {
-		log.Printf("Failed nodes: %v", failedNodes)
+		util.Log().Infof("Failed nodes: %v", failedNodes)
 	}
 
 	return nil
@@ -115,14 +114,14 @@ func (d *DHT) PUT(key, value string, ttl int) error {
 func (d *DHT) CreateStoreMessage(key, value string) ([]byte, error) {
 	byte32Key, err := message.HexStringToByte32(key)
 	if err != nil {
-		log.Printf("Error converting key to byte32: %v", err)
+		util.Log().Errorf("Error converting key to byte32: %v", err)
 		return nil, err
 	}
 	msg := message.NewDHTStoreMessage(10000, 2, byte32Key, []byte(value))
 	rpcMessage, serializationErr := msg.Serialize()
 
 	if serializationErr != nil { //TODO handle error
-		log.Printf("Error serializing message: %v", serializationErr)
+		util.Log().Errorf("Error serializing message: %v", serializationErr)
 		return nil, serializationErr
 	}
 
@@ -133,7 +132,7 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 	rpcMessage, err := d.CreateStoreMessage(key, value)
 
 	if err != nil {
-		log.Printf("Error creating/serializing message: %v", err)
+		util.Log().Errorf("Error creating/serializing message: %v", err)
 		return nil, err
 	}
 
@@ -142,9 +141,9 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 
 	// Send message asynchronously
 	go func() {
-		log.Print("sending this from dht.sendStoreMessage: ", rpcMessage)
+		util.Log().Print("sending this from dht.sendStoreMessage: ", rpcMessage)
 		msgResponse, err := d.Network.SendMessage(targetNode.IP, targetNode.Port, rpcMessage)
-		log.Print("dht.sendStoreMessage response: ", msgResponse)
+		util.Log().Print("dht.sendStoreMessage response: ", msgResponse)
 		if err != nil {
 			errorChan <- err
 			return
@@ -157,13 +156,13 @@ func (d *DHT) SendStoreMessage(key, value string, targetNode KNode) (message.Mes
 		// Deserialize the response
 		deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 		if deserializationErr != nil {
-			log.Printf("Error deserializing response: %v", deserializationErr)
+			util.Log().Errorf("Error deserializing response: %v", deserializationErr)
 			return nil, deserializationErr
 		}
 		return deserializedResponse, nil
 
 	case msgResponseErr := <-errorChan:
-		log.Printf("Error sending message: %v", msgResponseErr)
+		util.Log().Errorf("Error sending message: %v", msgResponseErr)
 		return nil, msgResponseErr
 	}
 }
@@ -189,7 +188,7 @@ func (d *DHT) GET(key string) (string, []*KNode, error) {
 
 func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 	value, err := d.Storage.Get(targetKeyID)
-	log.Print("Getting from storage: ", value)
+	util.Log().Print("Getting from storage: ", value)
 	if err != nil {
 		return "", err
 	}
@@ -204,7 +203,7 @@ func (d *DHT) GetFromStorage(targetKeyID string) (string, error) {
 }
 
 func (d *DHT) StoreToStorage(key, value string, ttl int) error {
-	log.Print("Storing to storage")
+	util.Log().Print("Storing to storage")
 	key = EnsureKeyHashed(key)
 	return d.Storage.Put(key, value, ttl)
 }
@@ -235,7 +234,7 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 
 func (d *DHT) FindNode(targetID string) ([]*KNode, error) {
 	nodes, err := d.RoutingTable.GetClosestNodes(targetID)
-	log.Print("FindNode nodes count: ", len(nodes))
+	util.Log().Print("FindNode nodes count: ", len(nodes))
 	if err != nil {
 		return nil, err
 	}
@@ -269,28 +268,28 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 
 			byte32Key, err := message.HexStringToByte32(targetID)
 			if err != nil {
-				log.Printf("Error converting key to byte32: %v", err)
+				util.Log().Errorf("Error converting key to byte32: %v", err)
 				return nil, err
 			}
 			msg := message.NewDHTFindNodeMessage(byte32Key)
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error
-				log.Printf("Error creating/serializing message: %v", serializationErr)
+				util.Log().Errorf("Error creating/serializing message: %v", serializationErr)
 				return nil, serializationErr
 			}
 
 			//TODO wait for msgResponse
 			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if msgResponseErr != nil { //TODO handle error
-				log.Printf("Error sending message: %v", msgResponseErr)
+				util.Log().Errorf("Error sending message: %v", msgResponseErr)
 				return nil, msgResponseErr
 			}
 
 			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 			// Deserialize the response to check if it contains a value or nodes
 			if deserializationErr != nil {
-				log.Printf("Error deserializing response: %v", deserializationErr)
+				util.Log().Errorf("Error deserializing response: %v", deserializationErr)
 				return nil, deserializationErr
 			}
 
@@ -301,7 +300,7 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 				smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 				if deserializationErr != nil {
-					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
 					return nil, deserializationErr
 				}
 
@@ -317,10 +316,10 @@ func (d *DHT) IterativeFindNode(targetID string) ([]*KNode, error) {
 				}
 			case *message.DHTFailureMessage:
 				// TODO handle failure
-				log.Printf("Failure message received")
+				util.Log().Info("Failure message received")
 			default:
 				// TODO handle unknown message
-				log.Printf("Unknown message type received")
+				util.Log().Info("Unknown message type received")
 			}
 		}
 
@@ -357,28 +356,28 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 
 			byte32Key, err := message.HexStringToByte32(targetID)
 			if err != nil {
-				log.Printf("Error converting key to byte32: %v", err)
+				util.Log().Errorf("Error converting key to byte32: %v", err)
 				return "", nil, err
 			}
 			msg := message.NewDHTFindValueMessage(byte32Key)
 			rpcMessage, serializationErr := msg.Serialize()
 
 			if serializationErr != nil { //TODO handle error
-				log.Printf("Error serializing message: %v", serializationErr)
+				util.Log().Errorf("Error serializing message: %v", serializationErr)
 				return "", nil, serializationErr
 			}
 
 			//TODO wait for msgResponse
 			msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 			if msgResponseErr != nil { //TODO handle error
-				log.Printf("Error sending message: %v", msgResponseErr)
+				util.Log().Errorf("Error sending message: %v", msgResponseErr)
 				return "", nil, msgResponseErr
 			}
 
 			deserializedResponse, deserializationErr := message.DeserializeMessage(msgResponse)
 			// Deserialize the response to check if it contains a value or nodes
 			if deserializationErr != nil {
-				log.Printf("Error deserializing response: %v", deserializationErr)
+				util.Log().Errorf("Error deserializing response: %v", deserializationErr)
 				return "", nil, deserializationErr
 			}
 
@@ -389,7 +388,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 				smr, deserializationErr := Deserialize(serializedSuccessResponse)
 
 				if deserializationErr != nil {
-					log.Printf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
+					util.Log().Errorf("Error deserializing SuccessMessageResponse: %v", deserializationErr)
 					return "", nil, deserializationErr
 				}
 
@@ -409,10 +408,10 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 				}
 			case *message.DHTFailureMessage:
 				// TODO handle failure
-				log.Printf("Failure message received")
+				util.Log().Info("Failure message received")
 			default:
 				// TODO handle unknown message
-				log.Printf("Unknown message type received")
+				util.Log().Info("Unknown message type received")
 			}
 		}
 
@@ -441,7 +440,7 @@ func (d *DHT) IterativeStore(key, value string) error {
 		response, err := d.SendStoreMessage(key, value, *node)
 
 		if err != nil {
-			log.Printf("Error sending retry message: %v", err)
+			util.Log().Errorf("Error sending retry message: %v", err)
 			return err
 		}
 
@@ -455,7 +454,7 @@ func (d *DHT) IterativeStore(key, value string) error {
 			response, err := d.SendStoreMessage(key, value, *node)
 
 			if err != nil {
-				log.Printf("Error sending retry message: %v", err)
+				util.Log().Errorf("Error sending retry message: %v", err)
 				return err
 			}
 
@@ -466,7 +465,7 @@ func (d *DHT) IterativeStore(key, value string) error {
 	}
 
 	if len(failedNodes) > 0 {
-		log.Printf("Failed nodes: %v", failedNodes)
+		util.Log().Infof("Failed nodes: %v", failedNodes)
 	}
 
 	return nil
@@ -497,7 +496,7 @@ func (d *DHT) Stop() error {
 	// Ensure the stop is called only once
 	d.stopOnce.Do(func() {
 		d.Storage.StopCleanup()
-		log.Println("DHT node stopped gracefully.")
+		util.Log().Println("DHT node stopped gracefully.")
 	})
 	return nil
 }
