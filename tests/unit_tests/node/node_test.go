@@ -10,7 +10,6 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/storage"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
-
 )
 
 // TestNodeGenerateNodeID tests the GenerateNodeID function.
@@ -29,7 +28,7 @@ func TestNewNodeInitialization(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
 		Difficulty: 4,
     }
-    nodeInstance := node.NewNode(config, 24 * time.Hour)
+    nodeInstance := node.NewNode(config, 86400)
 
     assert.NotNil(t, nodeInstance)
     assert.Equal(t, "127.0.0.1", nodeInstance.IP)
@@ -46,7 +45,7 @@ func TestNodePutAndGet(t *testing.T) {
 		EncryptionKey: []byte("1234567890123456"),
 		Difficulty: 4,
 	}
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 
 	err := nodeInstance.Put("key1", "value1", 60)
 	assert.NoError(t, err)
@@ -62,7 +61,7 @@ func TestNodeStorageTTL(t *testing.T) {
 		EncryptionKey: []byte("1234567890123456"),
 		Difficulty: 4,
 	}
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 
 	err := nodeInstance.Put("key1", "value1", 1)
 	assert.NoError(t, err)

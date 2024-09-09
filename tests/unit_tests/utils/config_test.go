@@ -14,7 +14,7 @@ func TestLoadConfig(t *testing.T) {
 	configContent := `
 		[node]
 		p2p_address = 127.0.0.1:8000
-		ttl = 1000000
+		cleanup_interval = 1000000
 		[security]
 		encryption_key = 1234567890abcdef
 		[bootstrap]

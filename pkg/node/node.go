@@ -39,7 +39,7 @@ type Node struct {
 	mu      sync.Mutex
 }
 
-func NewNode(config *util.Config, ttl time.Duration) *Node {
+func NewNode(config *util.Config, cleanup_interval time.Duration) *Node {
 
 	ip, port, _ := util.ParseAddress(config.P2PAddress)
 
@@ -52,8 +52,8 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 		Port:    port,
 		Nonce:   nonce,
 		Ping:    true,
-		DHT:     dht.NewDHT(ttl, config.EncryptionKey, id, ip, port),
-		Storage: storage.NewStorage(ttl, config.EncryptionKey),
+		DHT:     dht.NewDHT(cleanup_interval, config.EncryptionKey, id, ip, port),
+		Storage: storage.NewStorage(cleanup_interval, config.EncryptionKey),
 		IsDown:  false,
 		Config:  config, // Set the configuration
 	}

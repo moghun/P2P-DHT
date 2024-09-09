@@ -27,7 +27,7 @@ func TestPingPongIntegration(t *testing.T) {
     }
     api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
+	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
@@ -68,7 +68,7 @@ func TestPutMessageIntegration(t *testing.T) {
     }
     api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
+	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
@@ -114,7 +114,7 @@ func TestGetMessageIntegration(t *testing.T) {
     }
     api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
+	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
@@ -170,7 +170,7 @@ func TestPutGetIntegration(t *testing.T) {
     }
     api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
+	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start
@@ -240,7 +240,7 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
     }
     api.InitRateLimiter(config)
 
-	mockNode := node.NewNode(config, 24*time.Hour)
+	mockNode := node.NewNode(config, 86400)
 	go api.StartServer(config.P2PAddress, mockNode)
 
 	time.Sleep(1 * time.Second) // Give the server time to start

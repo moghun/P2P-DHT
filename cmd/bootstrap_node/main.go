@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
@@ -26,7 +25,7 @@ func main() {
 	util.SetupLogging("bootstrap_node.log")
 
 	// Create a new BootstrapNode instance
-	bootstrapNodeInstance := node.NewBootstrapNode(config, 720*time.Hour)
+	bootstrapNodeInstance := node.NewBootstrapNode(config, 86400)
 
 	// Hardcoded for now TODO or not TODO?
 	bootstrapNodeInstance.AddKnownPeer("nodeID1", "192.168.1.1", 8081)

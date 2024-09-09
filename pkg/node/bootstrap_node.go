@@ -16,9 +16,9 @@ type BootstrapNode struct {
 }
 
 // NewBootstrapNode creates a new BootstrapNode with the given configuration and TTL.
-func NewBootstrapNode(config *util.Config, ttl time.Duration) *BootstrapNode {
+func NewBootstrapNode(config *util.Config, cleanup_interval time.Duration) *BootstrapNode {
 	return &BootstrapNode{
-		Node:       *NewNode(config, ttl),
+		Node:       *NewNode(config, cleanup_interval),
 		KnownPeers: make(map[string]string),
 	}
 }

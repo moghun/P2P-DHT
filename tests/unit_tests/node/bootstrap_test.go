@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
@@ -25,7 +24,7 @@ func TestBootstrapSuccess(t *testing.T) {
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 	nodeInstance.Network = &MockNetwork{ShouldFail: false}
 
 	err = nodeInstance.Bootstrap()
@@ -46,7 +45,7 @@ func TestBootstrapFailure(t *testing.T) {
 		},
 	}
 
-	nodeInstance := node.NewNode(config, 24 * time.Hour)
+	nodeInstance := node.NewNode(config, 86400)
 	nodeInstance.Network = &MockNetwork{ShouldFail: true}
 
 	err = nodeInstance.Bootstrap()

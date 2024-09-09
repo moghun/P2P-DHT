@@ -14,7 +14,7 @@ import (
 type Storage struct {
 	data         map[string]*storageItem
 	mu           sync.Mutex
-	ttl          time.Duration
+	cleanup_interval  time.Duration
 	key          []byte // Encryption key
 	cleanupTicker *time.Ticker // Holds the reference to the ticker
 	stopCleanup   chan bool // Channel to signal stopping the cleanup routine
@@ -26,15 +26,15 @@ type storageItem struct {
 	hash   string
 }
 
-func NewStorage(ttl time.Duration, key []byte) *Storage {
+func NewStorage(cleanup_interval time.Duration, key []byte) *Storage {
 	storage := &Storage{
 		data:        make(map[string]*storageItem),
-		ttl:         ttl,
+		cleanup_interval:         cleanup_interval,
 		key:         key,
 		stopCleanup: make(chan bool),
 	}
 
-	storage.StartCleanup(ttl)
+	storage.StartCleanup(cleanup_interval * time.Second)
 	return storage
 }
 
@@ -163,7 +163,7 @@ func (s *storageItem) SetValue(setValue string){
 
 // Getter for the TTL field
 func (s *Storage) GetTTL() time.Duration {
-	return s.ttl
+	return s.cleanup_interval
 }
 
 // Getter for the Key field

@@ -97,10 +97,10 @@ func Deserialize(data []byte) (*SuccessMessageResponse, error) {
 }
 
 // NewDHT creates a new instance of DHT.
-func NewDHT(ttl time.Duration, encryptionKey []byte, id string, ip string, port int) *DHT {
+func NewDHT(cleanup_interval time.Duration, encryptionKey []byte, id string, ip string, port int) *DHT {
 	return &DHT{
 		RoutingTable: NewRoutingTable(id),
-		Storage:      storage.NewStorage(ttl, encryptionKey),
+		Storage:      storage.NewStorage(cleanup_interval, encryptionKey),
 		Network:      message.NewNetwork(id, ip, port),
 	}
 }

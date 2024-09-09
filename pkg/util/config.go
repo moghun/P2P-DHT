@@ -36,7 +36,7 @@ func LoadConfig(filename string) *Config {
 
 	p2pAddress := cfg.Section("node").Key("p2p_address").String()
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
-	ttl, _ := cfg.Section("node").Key("ttl").Int()
+	ttl, _ := cfg.Section("node").Key("cleanup_interval").Int()
 
 	// Load bootstrap retry settings
 	bootstrapRetryInterval, _ := cfg.Section("node").Key("bootstrap_retry_interval").Int()
