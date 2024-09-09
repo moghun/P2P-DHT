@@ -40,7 +40,17 @@ func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) ([]b
     }
     defer conn.Close()
 
-    // Send the data
+    // Prepare a 32-byte node ID to send before the message
+    idBuf := make([]byte, 32)
+    copy(idBuf, n.ID) // Copy the ID into the buffer (if shorter than 32 bytes, it will be padded with zeros)
+
+    // Send the 32-byte node ID
+    _, err = conn.Write(idBuf)
+    if err != nil {
+        return nil, fmt.Errorf("failed to send node ID: %v", err)
+    }
+
+    // Now send the actual message
     _, err = conn.Write(data)
     if err != nil {
         return nil, fmt.Errorf("failed to send message: %v", err)
@@ -65,6 +75,7 @@ func (n *Network) SendMessage(targetIP string, targetPort int, data []byte) ([]b
     util.Log().Printf("Node (%s) received response from %s: %x", n.ID, address, buf[:response])
     return buf[:response], nil
 }
+
 
 // getMessageTypeName returns the message type name for a given message type code.
 func getMessageTypeName(messageType int) string {
