@@ -22,8 +22,10 @@ func TestTwoNodePingPong(t *testing.T) {
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
         EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
     }
-
+    api.InitRateLimiter(config1)
     node1 := node.NewNode(config1, 24*time.Hour)
     go api.StartServer(config1.P2PAddress, node1)
 
@@ -34,6 +36,8 @@ func TestTwoNodePingPong(t *testing.T) {
     config2 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
         EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
     }
 
     node2 := node.NewNode(config2, 24*time.Hour)
@@ -68,7 +72,10 @@ func TestTwoNodePut(t *testing.T) {
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
         EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
     }
+    api.InitRateLimiter(config1)
 
     node1 := node.NewNode(config1, 24*time.Hour)
     go api.StartServer(config1.P2PAddress, node1)
@@ -118,7 +125,10 @@ func TestTwoNodeGet(t *testing.T) {
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
         EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
     }
+    api.InitRateLimiter(config1)
 
     node1 := node.NewNode(config1, 24*time.Hour)
     go api.StartServer(config1.P2PAddress, node1)
@@ -186,7 +196,10 @@ func TestTwoNodePutGet(t *testing.T) {
     config1 := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
         EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
     }
+    api.InitRateLimiter(config1)
 
     node1 := node.NewNode(config1, 24*time.Hour)
     go api.StartServer(config1.P2PAddress, node1)

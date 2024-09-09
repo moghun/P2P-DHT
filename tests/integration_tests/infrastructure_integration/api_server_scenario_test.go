@@ -19,10 +19,13 @@ func TestRateLimiterIntegration(t *testing.T) {
 	assert.NoError(t, err, "Failed to get a free port")
 
 	// Create a real node instance with necessary configuration
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	realNode := node.NewNode(config, 24*time.Hour)
 

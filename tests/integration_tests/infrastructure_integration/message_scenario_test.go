@@ -18,10 +18,13 @@ func TestPingPongIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 24*time.Hour)
 	go api.StartServer(config.P2PAddress, mockNode)
@@ -55,10 +58,13 @@ func TestPutMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 24*time.Hour)
 	go api.StartServer(config.P2PAddress, mockNode)
@@ -97,10 +103,13 @@ func TestGetMessageIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 24*time.Hour)
 	go api.StartServer(config.P2PAddress, mockNode)
@@ -149,10 +158,13 @@ func TestPutGetIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 24*time.Hour)
 	go api.StartServer(config.P2PAddress, mockNode)
@@ -215,10 +227,13 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
 	port, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-	config := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
-		EncryptionKey: []byte("1234567890123456"),
-	}
+    config := &util.Config{
+        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+        EncryptionKey: []byte("1234567890123456"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+    }
+    api.InitRateLimiter(config)
 
 	mockNode := node.NewNode(config, 24*time.Hour)
 	go api.StartServer(config.P2PAddress, mockNode)

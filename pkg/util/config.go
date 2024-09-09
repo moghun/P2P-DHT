@@ -10,14 +10,16 @@ import (
 )
 
 type Config struct {
-	Address        string
-	P2PAddress     string
-	APIAddress     string
-	BootstrapNodes []BootstrapNode
-	EncryptionKey  []byte
-	TTL            int // TTL in microseconds
-
+	Address          string
+	P2PAddress       string
+	APIAddress       string
+	BootstrapNodes   []BootstrapNode
+	EncryptionKey    []byte
+	TTL              int // TTL in seconds
+	RateLimiterRate  int // Requests per second
+	RateLimiterBurst int // Burst size
 }
+
 
 type BootstrapNode struct {
 	IP   string
@@ -36,15 +38,21 @@ func LoadConfig(filename string) *Config {
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
 	ttl, _ := cfg.Section("node").Key("ttl").Int()
 
+	// Load rate limiter settings from config
+	rateLimiterRate, _ := cfg.Section("rate_limiter").Key("requests_per_second").Int()
+	rateLimiterBurst, _ := cfg.Section("rate_limiter").Key("burst_size").Int()
+
 	bootstrapNodes := LoadBootstrapNodes(cfg)
 
 	return &Config{
-		Address:        cfg.Section("").Key("address").String(),
-		P2PAddress:     p2pAddress,
-		APIAddress:     apiAddress,
-		BootstrapNodes: bootstrapNodes,
-		EncryptionKey:  encryptionKey,
-		TTL:	ttl,
+		Address:          cfg.Section("").Key("address").String(),
+		P2PAddress:       p2pAddress,
+		APIAddress:       apiAddress,
+		BootstrapNodes:   bootstrapNodes,
+		EncryptionKey:    encryptionKey,
+		TTL:              ttl,
+		RateLimiterRate:  rateLimiterRate,
+		RateLimiterBurst: rateLimiterBurst,
 	}
 }
 
