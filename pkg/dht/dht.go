@@ -522,7 +522,7 @@ func (d *DHT) IterativeFindValue(targetID string) (string, []*KNode, error) {
 	}
 
 	if len(failedNodes) > 0 {
-		util.Log().Info(("Failed nodes: %v", failedNodes)
+		util.Log().Info("Failed nodes: %v", failedNodes)
 	}
 
 	return "", shortlist[:min(len(shortlist), K)], nil
@@ -544,7 +544,7 @@ func (d *DHT) SendFindValueMessage(targetID string, node KNode) (message.Message
 
 	msgResponse, msgResponseErr := d.Network.SendMessage(node.IP, node.Port, rpcMessage)
 	if msgResponseErr != nil { //TODO handle error
-		util.Log().Errorf(("Error sending message: %v", msgResponseErr)
+		util.Log().Errorf("Error sending message: %v", msgResponseErr)
 		return nil, msgResponseErr
 	}
 
