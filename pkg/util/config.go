@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
@@ -19,6 +20,8 @@ type Config struct {
 	RateLimiterRate  int // Requests per second
 	RateLimiterBurst int // Burst size
 	Difficulty       int // PoW Difficulty
+	BootstrapRetryInterval time.Duration // Retry interval for bootstrap in seconds
+	MaxBootstrapRetries    int           // Max number of bootstrap retries
 }
 
 type BootstrapNode struct {
@@ -37,25 +40,24 @@ func LoadConfig(filename string) *Config {
 	encryptionKey := []byte(cfg.Section("security").Key("encryption_key").String())
 	ttl, _ := cfg.Section("node").Key("ttl").Int()
 
-	// Load rate limiter settings from config
-	rateLimiterRate, _ := cfg.Section("rate_limiter").Key("requests_per_second").Int()
-	rateLimiterBurst, _ := cfg.Section("rate_limiter").Key("burst_size").Int()
+	// Load bootstrap retry settings
+	bootstrapRetryInterval, _ := cfg.Section("node").Key("bootstrap_retry_interval").Int()
+	maxBootstrapRetries, _ := cfg.Section("node").Key("max_bootstrap_retries").Int()
 
-	// Load PoW difficulty from config
-	difficulty, _ := cfg.Section("security").Key("difficulty").Int()
+	// Convert interval to time.Duration
+	retryInterval := time.Duration(bootstrapRetryInterval) * time.Second
 
 	bootstrapNodes := LoadBootstrapNodes(cfg)
 
 	return &Config{
-		Address:          cfg.Section("").Key("address").String(),
-		P2PAddress:       p2pAddress,
-		APIAddress:       apiAddress,
-		BootstrapNodes:   bootstrapNodes,
-		EncryptionKey:    encryptionKey,
-		TTL:              ttl,
-		RateLimiterRate:  rateLimiterRate,
-		RateLimiterBurst: rateLimiterBurst,
-		Difficulty:       difficulty,
+		P2PAddress:            p2pAddress,
+		APIAddress:            apiAddress,
+		EncryptionKey:         encryptionKey,
+		TTL:                   ttl,
+		Difficulty:            cfg.Section("security").Key("difficulty").MustInt(4),
+		BootstrapRetryInterval: retryInterval,
+		MaxBootstrapRetries:    maxBootstrapRetries,
+		BootstrapNodes:        bootstrapNodes,
 	}
 }
 

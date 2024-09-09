@@ -18,6 +18,8 @@ func TestBootstrapSuccess(t *testing.T) {
 	config := &util.Config{
 		P2PAddress: fmt.Sprintf("127.0.0.1:%d", port),
 		Difficulty: 4,
+		BootstrapRetryInterval: 5,
+		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: port + 1}, // Adjust port for uniqueness
 		},
@@ -37,6 +39,8 @@ func TestBootstrapFailure(t *testing.T) {
 	config := &util.Config{
 		P2PAddress: fmt.Sprintf("127.0.0.1:%d", port),
 		Difficulty: 4,
+		BootstrapRetryInterval: 5,
+		MaxBootstrapRetries: 2,
 		BootstrapNodes: []util.BootstrapNode{
 			{IP: "127.0.0.1", Port: port + 1}, // Adjust port for uniqueness
 		},

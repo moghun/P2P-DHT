@@ -1,3 +1,5 @@
+// pkg/node/bootstrapping.go
+
 package node
 
 import (
@@ -8,17 +10,12 @@ import (
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 )
 
-const (
-	bootstrapRetryInterval = 5 * time.Second
-	maxBootstrapRetries    = 2
-)
-
 func (n *Node) Bootstrap() error {
     retries := 0
     resultChan := make(chan error, 1)
 
     go func() { // Run bootstrap attempts asynchronously
-        for retries < maxBootstrapRetries {
+        for retries < n.Config.MaxBootstrapRetries {
             success := n.tryBootstrap()
             if success {
                 fmt.Println("Successfully bootstrapped to the network.")
@@ -26,12 +23,12 @@ func (n *Node) Bootstrap() error {
                 return
             }
 
-            fmt.Printf("Failed to bootstrap. Retrying in %v... (%d/%d)\n", bootstrapRetryInterval, retries+1, maxBootstrapRetries)
-            time.Sleep(bootstrapRetryInterval)
+            fmt.Printf("Failed to bootstrap. Retrying in %v... (%d/%d)\n", n.Config.BootstrapRetryInterval, retries+1, n.Config.MaxBootstrapRetries)
+            time.Sleep(n.Config.BootstrapRetryInterval)
             retries++
         }
 
-        resultChan <- fmt.Errorf("failed to bootstrap after %d attempts", maxBootstrapRetries)
+        resultChan <- fmt.Errorf("failed to bootstrap after %d attempts", n.Config.MaxBootstrapRetries)
     }()
 
     return <-resultChan 

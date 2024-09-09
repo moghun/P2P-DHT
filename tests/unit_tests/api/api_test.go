@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/api"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
+	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/util"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/tests"
 )
 
@@ -31,7 +32,17 @@ func TestStartServer(t *testing.T) {
 	assert.NoError(t, err, "Failed to get a free port")
 	mockNode := NewMockNode("127.0.0.1", port)
 
+	config := &util.Config{
+		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
+		EncryptionKey: []byte("12345678901234567890123456789012"),
+        RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty: 4,
+    }
+
+
 	go func() {
+		api.InitRateLimiter(config)
 		err := api.StartServer(fmt.Sprintf("127.0.0.1:%d", port), &mockNode.Node)
 		assert.NoError(t, err, "Failed to start API server")
 	}()
