@@ -221,6 +221,7 @@ func (d *DHT) FindValue(targetKeyID string) (string, []*KNode, error) {
 		return value, nil, nil
 	}
 
+	util.Log().Print("NOT FUND IN STORAGE LOOKING FOR FIND NODE")
 	// If the value is not found in the closest nodes, perform a FindNode RPC
 	nodes, err := d.RoutingTable.GetClosestNodes(targetKeyID)
 	if err != nil {

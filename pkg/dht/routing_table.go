@@ -52,9 +52,14 @@ func (rt *RoutingTable) GetAllNodes() ([]*KNode, error) {
 // AddNode adds a node to the appropriate KBucket.
 func (rt *RoutingTable) AddNode(targetID *KNode) {
 	util.Log().Info("Adding node to routing table: ", targetID.ID)
-	bucketIndex, _ := XOR(rt.NodeID, targetID.ID)
-	if bucketIndex == 0 {
-		util.Log().Info("Bucket Index is 0")
+	bucketIndex, err := XOR(rt.NodeID, targetID.ID)
+	if err != nil {
+		util.Log().Errorf("Error adding node to routing table: %v", err)
+		return
+	}
+
+	if bucketIndex <= 0 {
+		util.Log().Info("Bucket Index is less than 0")
 		return
 	}
 	util.Log().Infof("Adding Node Bucket Index: %d", bucketIndex)

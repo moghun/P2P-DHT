@@ -18,7 +18,7 @@ func TestGenerateNodeIDWithPoW(t *testing.T) {
 	assert.NotEmpty(t, nodeID, "Generated node ID should not be empty")
 
 	// Validate the generated node ID
-	isValid := security.ValidateNodeIDWithPoW(ip, port, nodeID, nonce, 4)
+	isValid := security.ValidateNodeIDWithPoW2(ip, port, nodeID, nonce, 4)
 	assert.True(t, isValid, "Generated node ID should be valid with the correct nonce")
 }
 
@@ -30,16 +30,16 @@ func TestValidateNodeIDWithPoW(t *testing.T) {
 	nodeID, nonce := security.GenerateNodeIDWithPoW(ip, port, 4)
 
 	// Validate the node ID with the correct nonce
-	isValid := security.ValidateNodeIDWithPoW(ip, port, nodeID, nonce, 4)
+	isValid := security.ValidateNodeIDWithPoW2(ip, port, nodeID, nonce, 4)
 	assert.True(t, isValid, "Node ID should be valid with the correct nonce")
 
 	// Validate the node ID with an incorrect nonce
-	isValid = security.ValidateNodeIDWithPoW(ip, port, nodeID, nonce+1, 4)
+	isValid = security.ValidateNodeIDWithPoW2(ip, port, nodeID, nonce+1, 4)
 	assert.False(t, isValid, "Node ID should be invalid with an incorrect nonce")
 
 	// Validate a different node ID with the correct nonce
 	differentNodeID, _ := security.GenerateNodeIDWithPoW(ip, port+1, 4)
-	isValid = security.ValidateNodeIDWithPoW(ip, port, differentNodeID, nonce, 4)
+	isValid = security.ValidateNodeIDWithPoW2(ip, port, differentNodeID, nonce, 4)
 	assert.False(t, isValid, "A different node ID should be invalid even with the correct nonce")
 }
 

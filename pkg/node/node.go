@@ -25,10 +25,10 @@ type NodeInterface interface {
 }
 
 type Node struct {
-	ID      string
-	IP      string
-	Port    int
-	Nonce   int
+	ID   string
+	IP   string
+	Port int
+	//Nonce   int
 	Ping    bool
 	DHT     *dht.DHT
 	Storage *storage.Storage
@@ -43,13 +43,15 @@ func NewNode(config *util.Config, cleanup_interval time.Duration) *Node {
 	ip, port, _ := util.ParseAddress(config.P2PAddress)
 
 	// Generate a node ID using Proof of Work
-	id, nonce := security.GenerateNodeIDWithPoW(ip, port, config.Difficulty)
+	//id, nonce := security.GenerateNodeIDWithPoW(ip, port, config.Difficulty)
+
+	id := GenerateNodeID(ip, port)
 
 	node := &Node{
-		ID:      id,
-		IP:      ip,
-		Port:    port,
-		Nonce:   nonce,
+		ID:   id,
+		IP:   ip,
+		Port: port,
+		//Nonce:   nonce,
 		Ping:    true,
 		DHT:     dht.NewDHT(cleanup_interval, config.EncryptionKey, id, ip, port),
 		Storage: storage.NewStorage(cleanup_interval, config.EncryptionKey),
@@ -69,7 +71,7 @@ func (n *Node) Shutdown() {
 	n.DHT.Stop()
 	n.Storage.StopCleanup()
 	n.IsDown = true
-	
+
 	util.Log().Infof("Node %s shut down successfully.", n.ID)
 }
 
@@ -106,9 +108,11 @@ func (n *Node) GetID() string {
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	// Validate the node ID using PoW before adding the peer
-	if security.ValidateNodeIDWithPoW(ip, port, nodeID, n.Nonce, n.Config.Difficulty) {
+	if security.ValidateNodeIDWithPoW(ip, port, nodeID) {
 		kNode := &dht.KNode{ID: nodeID, IP: ip, Port: port}
+		util.Log().Infof("Adding peer %s to routing table", nodeID)
 		n.DHT.RoutingTable.AddNode(kNode)
+		util.Log().Infof("ADDED PEER: %s ", nodeID)
 	}
 }
 

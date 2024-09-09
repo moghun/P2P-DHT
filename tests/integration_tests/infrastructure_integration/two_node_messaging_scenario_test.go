@@ -1,8 +1,10 @@
 package tests
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -21,50 +23,50 @@ func TestTwoNodePingPong(t *testing.T) {
 	port1, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config1 := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("12345678901234567890123456789012"),
-        RateLimiterRate:  10,
+	config1 := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port1),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-        Difficulty: 4,
-    }
-    api.InitRateLimiter(config1)
-    node1 := node.NewNode(config1, 86400)
-    go api.StartServer(config1.P2PAddress, "",node1)
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config1)
+	node1 := node.NewNode(config1, 86400)
+	go api.StartServer(config1.P2PAddress, "", node1)
 
-    // Set up Node 2
-    port2, err := tests.GetFreePort()
-    assert.NoError(t, err)
+	// Set up Node 2
+	port2, err := tests.GetFreePort()
+	assert.NoError(t, err)
 
-    config2 := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-        EncryptionKey: []byte("1234567890123456"),
-        RateLimiterRate:  10,
+	config2 := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port2),
+		EncryptionKey:    []byte("1234567890123456"),
+		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-        Difficulty: 4,
-    }
+		Difficulty:       4,
+	}
 
-    node2 := node.NewNode(config2, 86400)
-    go api.StartServer(config2.P2PAddress, "",node2)
+	node2 := node.NewNode(config2, 86400)
+	go api.StartServer(config2.P2PAddress, "", node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
-    // Create the ping message
-    pingMsg := message.NewDHTPingMessage()
-    serializedPingMsg, err := pingMsg.Serialize()
-    assert.NoError(t, err)
+	// Create the ping message
+	pingMsg := message.NewDHTPingMessage()
+	serializedPingMsg, err := pingMsg.Serialize()
+	assert.NoError(t, err)
 
-    // Use SendMessage from node1 to send the ping to node2
-    response, err := node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedPingMsg)
-    assert.NoError(t, err)
+	// Use SendMessage from node1 to send the ping to node2
+	response, err := node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedPingMsg)
+	assert.NoError(t, err)
 
-    // Verify the response
-    pongMsg, err := message.DeserializeMessage(response)
-    assert.NoError(t, err)
+	// Verify the response
+	pongMsg, err := message.DeserializeMessage(response)
+	assert.NoError(t, err)
 
-    dhtPong, ok := pongMsg.(*message.DHTPongMessage)
-    assert.True(t, ok)
-    assert.NotZero(t, dhtPong.Timestamp)
+	dhtPong, ok := pongMsg.(*message.DHTPongMessage)
+	assert.True(t, ok)
+	assert.NotZero(t, dhtPong.Timestamp)
 }
 
 // TestTwoNodePut refactored to use SendMessage
@@ -73,71 +75,17 @@ func TestTwoNodePut(t *testing.T) {
 	port1, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
-    config1 := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-        EncryptionKey: []byte("12345678901234567890123456789012"),
-        RateLimiterRate:  10,
-		RateLimiterBurst: 20,
-        Difficulty: 4,
-    }
-    api.InitRateLimiter(config1)
-
-    node1 := node.NewNode(config1, 86400)
-    go api.StartServer(config1.P2PAddress, "",node1)
-
-	// Set up Node 2
-	port2, err := tests.GetFreePort()
-	assert.NoError(t, err)
-
-    config2 := &util.Config{
-        P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-        EncryptionKey: []byte("12345678901234567890123456789012"),
-        Difficulty: 4,
-    }
-
-    node2 := node.NewNode(config2, 86400)
-    go api.StartServer(config2.P2PAddress, "",node2)
-
-	time.Sleep(1 * time.Second) // Ensure both servers are up
-
-    // Create the put message
-    var key [32]byte
-    copy(key[:], []byte("testkey"))
-    value := []byte("testvalue")
-    putMsg := message.NewDHTPutMessage(10000, 2, key, value)
-    serializedPutMsg, err := putMsg.Serialize()
-    assert.NoError(t, err)
-
-    // Use SendMessage from node1 to send the PUT to node2
-    response, err := node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedPutMsg)
-    assert.NoError(t, err)
-
-    // Verify the response
-    successMsg, err := message.DeserializeMessage(response)
-    assert.NoError(t, err)
-
-    successPutMsg, ok := successMsg.(*message.DHTSuccessMessage)
-    assert.True(t, ok)
-    assert.Equal(t, key, successPutMsg.Key)
-    assert.Equal(t, value, successPutMsg.Value)
-}
-
-func TestTwoNodeGet(t *testing.T) {
-	// Set up Node 1
-	port1, err := tests.GetFreePort()
-	assert.NoError(t, err)
-
 	config1 := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port1),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
 		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
+		Difficulty:       4,
 	}
 	api.InitRateLimiter(config1)
 
 	node1 := node.NewNode(config1, 86400)
-	go api.StartServer(config1.P2PAddress, "",node1)
+	go api.StartServer(config1.P2PAddress, "", node1)
 
 	// Set up Node 2
 	port2, err := tests.GetFreePort()
@@ -146,14 +94,68 @@ func TestTwoNodeGet(t *testing.T) {
 	config2 := &util.Config{
 		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
 		EncryptionKey: []byte("12345678901234567890123456789012"),
+		Difficulty:    4,
+	}
+
+	node2 := node.NewNode(config2, 86400)
+	go api.StartServer(config2.P2PAddress, "", node2)
+
+	time.Sleep(1 * time.Second) // Ensure both servers are up
+
+	// Create the put message
+	var key [32]byte
+	copy(key[:], []byte("testkey"))
+	value := []byte("testvalue")
+	putMsg := message.NewDHTPutMessage(10000, 2, key, value)
+	serializedPutMsg, err := putMsg.Serialize()
+	assert.NoError(t, err)
+
+	// Use SendMessage from node1 to send the PUT to node2
+	response, err := node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedPutMsg)
+	assert.NoError(t, err)
+
+	// Verify the response
+	successMsg, err := message.DeserializeMessage(response)
+	assert.NoError(t, err)
+
+	successPutMsg, ok := successMsg.(*message.DHTSuccessMessage)
+	assert.True(t, ok)
+	assert.Equal(t, key, successPutMsg.Key)
+	assert.Equal(t, value, successPutMsg.Value)
+}
+
+func TestTwoNodeGet(t *testing.T) {
+	// Set up Node 1
+	port1, err := tests.GetFreePort()
+	assert.NoError(t, err)
+
+	config1 := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port1),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
 		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
+		Difficulty:       4,
+	}
+	api.InitRateLimiter(config1)
+
+	node1 := node.NewNode(config1, 86400)
+	go api.StartServer(config1.P2PAddress, "", node1)
+
+	// Set up Node 2
+	port2, err := tests.GetFreePort()
+	assert.NoError(t, err)
+
+	config2 := &util.Config{
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port2),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
+		RateLimiterRate:  10,
+		RateLimiterBurst: 20,
+		Difficulty:       4,
 	}
 	api.InitRateLimiter(config2)
 
 	node2 := node.NewNode(config2, 86400)
-	go api.StartServer(config2.P2PAddress, "",node2)
+	go api.StartServer(config2.P2PAddress, "", node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
@@ -171,7 +173,7 @@ func TestTwoNodeGet(t *testing.T) {
 	// Use SendMessage from node1 to send the PUT to node2
 	response, err := node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedPutMsg)
 
-    log.Print(response)
+	log.Print(response)
 
 	assert.NoError(t, err)
 
@@ -183,6 +185,10 @@ func TestTwoNodeGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Use SendMessage from node1 to send the GET to node2
+	val, nodes, err := node2.DHT.GET(hashKey)
+	assert.NoError(t, err)
+	log.Print("VAL: ", val)
+	log.Print("LEN: ", len(nodes))
 	response, err = node1.DHT.Network.SendMessage("127.0.0.1", port2, serializedGetMsg)
 	assert.NoError(t, err)
 
@@ -198,44 +204,44 @@ func TestTwoNodeGet(t *testing.T) {
 	assert.Equal(t, value, []byte(deserializedSuccessMsg.Value))
 }
 
-
 func TestTwoNodePutGet(t *testing.T) {
 	// Set up Node 1
 	port1, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
 	config1 := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port1),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port1),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
 		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
+		Difficulty:       4,
 	}
 	api.InitRateLimiter(config1)
 
 	node1 := node.NewNode(config1, 86400)
-	go api.StartServer(config1.P2PAddress, "",node1)
+	go api.StartServer(config1.P2PAddress, "", node1)
 
 	// Set up Node 2
 	port2, err := tests.GetFreePort()
 	assert.NoError(t, err)
 
 	config2 := &util.Config{
-		P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port2),
-		EncryptionKey: []byte("12345678901234567890123456789012"),
+		P2PAddress:       fmt.Sprintf("127.0.0.1:%d", port2),
+		EncryptionKey:    []byte("12345678901234567890123456789012"),
 		RateLimiterRate:  10,
 		RateLimiterBurst: 20,
-		Difficulty: 4,
+		Difficulty:       4,
 	}
 	api.InitRateLimiter(config2)
 
 	node2 := node.NewNode(config2, 86400)
-	go api.StartServer(config2.P2PAddress, "",node2)
+	go api.StartServer(config2.P2PAddress, "", node2)
 
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
 	// 1. Send DHT_PUT message from Node 1 to Node 2
-	key := "testkey"
+	//key := "testkey"
+	key := generateHammingDistanceString(node2.ID, 5)
 	value := []byte("testvalue")
 	hashKey := dht.EnsureKeyHashed(key) // Ensures the key is hashed
 	byteKey, err := message.HexStringToByte32(hashKey)
@@ -271,9 +277,68 @@ func TestTwoNodePutGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	successGetMsg, ok := successMsg.(*message.DHTSuccessMessage)
-    deserializedSuccessMsg, _ := dht.Deserialize(successGetMsg.Value)
+	deserializedSuccessMsg, _ := dht.Deserialize(successGetMsg.Value)
+
+	assert.NoError(t, err)
 
 	assert.True(t, ok)
 	assert.Equal(t, byteKey, successGetMsg.Key)
-	assert.Equal(t, value, []byte(deserializedSuccessMsg.Value))
+	assert.Equal(t, string(value), deserializedSuccessMsg.Value)
+}
+
+// generateHammingDistanceString generates a string with a specified Hamming distance from the input
+func generateHammingDistanceString(input string, distance int) string {
+	rand.Seed(time.Now().UnixNano())
+
+	// The input is a hex string, so it has 160 bits (since it's 40 hex characters)
+	totalBits := len(input) * 4 // 4 bits per hex character
+
+	if distance > totalBits {
+		panic("Hamming distance is greater than the total number of bits in the input string.")
+	}
+
+	// Track which bits have already been flipped to avoid flipping the same bit twice
+	flippedBits := make(map[int]bool)
+
+	// Mutable copy of the input string
+	output := input
+
+	// Randomly flip 'distance' bits
+	for i := 0; i < distance; i++ {
+		for {
+			// Randomly choose a bit to flip
+			bitIndex := rand.Intn(totalBits)
+
+			// If the bit is already flipped, choose another
+			if flippedBits[bitIndex] {
+				continue
+			}
+
+			// Flip the bit in the output string
+			output = flipBitInHex(output, bitIndex)
+
+			// Mark the bit as flipped
+			flippedBits[bitIndex] = true
+
+			break
+		}
+	}
+
+	return output
+}
+
+// flipBitInHex flips a bit at the given bit position in a hex-encoded string
+func flipBitInHex(hexString string, bitIndex int) string {
+	// Convert the hex string back to a byte array
+	bytes, _ := hex.DecodeString(hexString)
+
+	// Calculate byte index and bit position within the byte
+	byteIndex := bitIndex / 8
+	bitPosition := bitIndex % 8
+
+	// Flip the bit at the given position
+	bytes[byteIndex] ^= (1 << (7 - bitPosition))
+
+	// Convert back to hex string
+	return hex.EncodeToString(bytes)
 }

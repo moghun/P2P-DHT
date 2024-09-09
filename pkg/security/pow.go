@@ -34,7 +34,7 @@ func GenerateNodeIDWithPoW(ip string, port int, difficulty int) (string, int) {
 }
 
 // ValidateNodeIDWithPoW validates that the node ID meets the required PoW difficulty, now with dynamic difficulty.
-func ValidateNodeIDWithPoW(ip string, port int, id string, nonce int, difficulty int) bool {
+func ValidateNodeIDWithPoW2(ip string, port int, id string, nonce int, difficulty int) bool {
 	data := fmt.Sprintf("%s:%d:%d", ip, port, nonce)
 	hash := sha256.Sum256([]byte(data))
 
@@ -46,4 +46,14 @@ func ValidateNodeIDWithPoW(ip string, port int, id string, nonce int, difficulty
 
 	// Validate both the difficulty condition and that the generated hash matches the given ID
 	return strings.HasPrefix(hashStr, strings.Repeat("0", difficulty)) && hashStr == id
+}
+
+// ValidateNodeIDWithPoW validates that the node ID meets the required PoW difficulty, now with dynamic difficulty.
+func ValidateNodeIDWithPoW(ip string, port int, id string) bool {
+	data := fmt.Sprintf("%s:%d", ip, port)
+	//hash := sha256.Sum256([]byte(data))
+	hash := sha256.Sum256([]byte(data))
+	hexEncodedHash := hex.EncodeToString(hash[:20])
+	// Validate both the difficulty condition and that the generated hash matches the given ID
+	return hexEncodedHash == id
 }
