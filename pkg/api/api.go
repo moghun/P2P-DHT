@@ -3,9 +3,7 @@ package api
 import (
 	"fmt"
 	"net"
-	"strconv"
 
-	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/dht"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/message"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/node"
 	"gitlab.lrz.de/netintum/teaching/p2psec_projects_2024/DHT-14/pkg/security"
@@ -31,7 +29,7 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 				continue
 			}
 			go WithMiddleware(func(c net.Conn) {
-				HandleConnection(c, nodeInstance) // true means TLS connection
+				HandleConnection(c, nodeInstance)  // true means TLS connection
 			})(conn)
 		}
 	}()
@@ -55,7 +53,7 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 					continue
 				}
 				go WithMiddleware(func(c net.Conn) {
-					HandleConnection(c, nodeInstance) // false means non-TLS connection
+					HandleConnection(c, nodeInstance)  // false means non-TLS connection
 				})(conn)
 			}
 		}()
@@ -68,10 +66,6 @@ func StartServer(tlsAddress, nonTLSAddress string, nodeInstance node.NodeInterfa
 // HandleConnection processes incoming TLS connections and dispatches messages
 func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 	defer conn.Close()
-
-	// Extract the IP and Port of the client sending the message
-	clientAddr := conn.RemoteAddr().String()
-	util.Log().Infof("Connection established from %s", clientAddr)
 
 	for {
 		buf := make([]byte, 1024)
@@ -92,22 +86,6 @@ func HandleConnection(conn net.Conn, nodeInstance node.NodeInterface) {
 		}
 
 		var response []byte
-
-		//split clientAddr to get IP and Port
-
-		peerIp, peerPort, err := net.SplitHostPort(clientAddr)
-		if err != nil {
-			util.Log().Errorf("Failed to split client address: %v", err)
-			return
-		}
-		peerPortInt, err := strconv.Atoi(peerPort)
-		if err != nil {
-			util.Log().Errorf("Failed to convert peer port to integer: %v", err)
-			return
-		}
-		incomingNodeID := dht.EnsureKeyHashed(clientAddr)
-		util.Log().Infof("Adding Peer with node ID: %s", incomingNodeID)
-		nodeInstance.AddPeer(incomingNodeID, peerIp, peerPortInt)
 
 		switch msg.GetType() {
 		case message.DHT_PUT:
