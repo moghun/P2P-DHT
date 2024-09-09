@@ -36,6 +36,7 @@ This project is built using the following technologies:
 - **Logrus**: A structured logger used for logging within the application.
 
 ## Dependencies
+
 ### Dependencies
 
 This project primarily leverages Go's powerful built-in standard library for most of its functionality, ensuring efficiency and simplicity. In addition, we have included a few external dependencies to enhance logging, configuration, and testing. Key dependencies include:
@@ -85,11 +86,15 @@ To deploy a local system with multiple nodes, use the `./deploy.sh` script. The 
    chmod +x deploy.sh
    ```
 2. **Deploy nodes**:
+
    ```bash
    ./deploy.sh <number_of_nodes>
 
    ```
+
    This builds the Docker image, creates the dht-14_network, starts 2 bootstrap nodes, and deploys the specified number of DHT nodes.
+
+   ```
 
    ```
 
@@ -219,6 +224,17 @@ docker run -d \
   -e NODE_TYPE=bootstrap_node \
   {arbitrary_image_name}:latest
 ```
+
+## Known Issues
+
+The overall infrastructure, process architecture, and communication across nodes are functioning as expected without any major issues. However, there are a few known limitations in the **DHT module** that need to be addressed:
+
+- **Kademlia replication logic**: The replication logic is currently incomplete and needs to be implemented to ensure data redundancy across nodes.
+- **Bootstrapping with DHT node lookup**: The bootstrapping process is functional, but DHT node lookup integration with the bootstrapping mechanism remains unimplemented.
+- **Liveness check**: There is no implemented liveness check to ensure that nodes are still active and responsive in the network.
+- **Bucket refreshing**: The logic to refresh outdated Kademlia buckets is missing and must be added to maintain up-to-date routing tables.
+
+These issues are isolated within the DHT module, and once resolved, the system will have full Kademlia compliance.
 
 ## Makefile Commands
 
