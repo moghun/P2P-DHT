@@ -19,8 +19,8 @@ func TestHandlePut(t *testing.T) {
 	value := "value"
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 
 	nodeId := "id4"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
@@ -57,8 +57,8 @@ func TestHandleGet(t *testing.T) {
 	value := "value"
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	nodeId := "id4"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
 	newDht.RoutingTable.NodeID = hashedNodeId
@@ -125,8 +125,8 @@ func TestHandleFindNode(t *testing.T) {
 	hashedKey := dht.EnsureKeyHashed(key)
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	nodeId := "id15"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
 	newDht.RoutingTable.NodeID = hashedNodeId
@@ -172,8 +172,8 @@ func TestHandleFindValue(t *testing.T) {
 	hashedKey := dht.EnsureKeyHashed(key)
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	nodeId := "id15"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
 	newDht.RoutingTable.NodeID = hashedNodeId
@@ -213,8 +213,8 @@ func TestHandleStore(t *testing.T) {
 	hashKey := dht.EnsureKeyHashed(key)
 	value := []byte("value")
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
@@ -248,7 +248,7 @@ func TestHandleBootstrap(t *testing.T) {
 	bootstrapData := fmt.Sprintf("127.0.0.1:%d", 8080)
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	realNode := &node.BootstrapNode{
 		Node: node.Node{
 			IP:      "127.0.0.1",
@@ -273,8 +273,8 @@ func TestHandleBootstrap(t *testing.T) {
 func TestHandleBootstrapReply(t *testing.T) {
 	bootstrapReplyData := "192.168.1.1:8081\n192.168.1.2:8082"
 
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,

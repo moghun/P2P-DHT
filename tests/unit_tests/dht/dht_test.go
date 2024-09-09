@@ -22,8 +22,8 @@ func TestStoreToStorage(t *testing.T) {
 	value := []byte("value")
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
@@ -48,8 +48,8 @@ func TestGetFromStorage(t *testing.T) {
 	value := []byte("value")
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
@@ -72,8 +72,8 @@ func TestSendStoreMessage(t *testing.T) {
 	receiverPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
-	receiverDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
-	receiverStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	receiverNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    receiverPort,
@@ -84,8 +84,8 @@ func TestSendStoreMessage(t *testing.T) {
 	// Set up the sender node and its network
 	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
-	senderDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
-	senderStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	senderNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    senderPort,
@@ -141,8 +141,8 @@ func TestCreateStoreMessage(t *testing.T) {
 	value := "testvalue"
 
 	// Initialize a real storage and node for testing
-	store := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
+	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
@@ -293,7 +293,7 @@ func TestFindNode(t *testing.T) {
 	// Initialize a real storage and node for testing
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	newDht.RoutingTable.NodeID = hashedNodeId
 
 	var hashList []string
@@ -334,10 +334,8 @@ func TestFindValue_NoValue(t *testing.T) {
 	// Initialize a real storage and node for testing
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
-	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	newDht.RoutingTable.NodeID = hashedNodeId
-	newDht.Storage = store
 
 	var hashList []string
 	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
@@ -383,10 +381,8 @@ func TestFindValue_WithValue(t *testing.T) {
 	// Initialize a real storage and node for testing
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
-	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	newDht.RoutingTable.NodeID = hashedNodeId
-	newDht.Storage = store
 
 	var hashList []string
 	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
@@ -432,10 +428,8 @@ func TestGet_WithValue(t *testing.T) {
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
 
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
-	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	newDht.RoutingTable.NodeID = hashedNodeId
-	newDht.Storage = store
 
 	var hashList []string
 	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
@@ -481,10 +475,8 @@ func TestGet_NoValue(t *testing.T) {
 	// Initialize a real storage and node for testing
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
-	newDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
-	store := dht.NewDHTStorage(24*time.Hour, []byte("1234567890abcdef"))
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	newDht.RoutingTable.NodeID = hashedNodeId
-	newDht.Storage = store
 
 	var hashList []string
 	idList := []string{"id1", "id2", "id3", "id4", "id5", "id6", "id7", "id8", "id9", "id10", "id11", "id12", "id13", "id14", "id15", "id16", "id17", "id18", "id19", "id20",
@@ -531,8 +523,8 @@ func TestPut(t *testing.T) {
 	receiverPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
-	receiverDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
-	receiverStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	receiverDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", receiverPort)
+	receiverStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	nodeId := "id0"
 	hashedNodeId := dht.EnsureKeyHashed(nodeId)
 	receiverDht.RoutingTable.NodeID = hashedNodeId
@@ -547,8 +539,8 @@ func TestPut(t *testing.T) {
 	senderPort, err := tests.GetFreePort()
 	assert.NoError(t, err, "Failed to get a free port")
 
-	senderDht := dht.NewDHT(24*time.Hour, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
-	senderStore := storage.NewStorage(24*time.Hour, []byte("1234567890abcdef"))
+	senderDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "2", "127.0.0.1", senderPort)
+	senderStore := storage.NewStorage(86400, []byte("1234567890abcdef"))
 	nodeId2 := "id0"
 	hashedNodeId2 := dht.EnsureKeyHashed(nodeId2)
 	senderDht.RoutingTable.NodeID = hashedNodeId2

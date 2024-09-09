@@ -1,9 +1,6 @@
 package dht
 
 import (
-	"bytes"
-	"encoding/binary"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
