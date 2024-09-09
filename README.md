@@ -35,7 +35,19 @@ This project is built using the following technologies:
 - **Make**: The build system used to automate various tasks like building, testing, and running the project.
 - **Logrus**: A structured logger used for logging within the application.
 
-## Instructions
+## Dependencies
+### Dependencies
+
+This project primarily leverages Go's powerful built-in standard library for most of its functionality, ensuring efficiency and simplicity. In addition, we have included a few external dependencies to enhance logging, configuration, and testing. Key dependencies include:
+
+- **github.com/sirupsen/logrus**: For structured logging to simplify debugging and monitoring.
+- **gopkg.in/ini.v1**: For parsing and handling configuration files in INI format.
+- **github.com/stretchr/testify**: For writing expressive and efficient unit tests.
+- **gopkg.in/yaml.v3** and **github.com/pmezard/go-difflib**: Additional indirect dependencies used in conjunction with some libraries.
+
+These external libraries complement Go’s built-in packages to facilitate better configuration management, testing, and logging while keeping the project lightweight.
+
+## Using the software
 
 ### Configuration
 
