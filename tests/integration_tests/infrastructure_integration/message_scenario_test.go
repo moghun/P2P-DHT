@@ -23,6 +23,7 @@ func TestPingPongIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 
@@ -63,6 +64,7 @@ func TestPutMessageIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 
@@ -108,6 +110,7 @@ func TestGetMessageIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 
@@ -163,6 +166,7 @@ func TestPutGetIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 
@@ -232,6 +236,7 @@ func TestGetNonExistentKeyIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 

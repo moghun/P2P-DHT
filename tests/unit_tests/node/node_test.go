@@ -27,6 +27,7 @@ func TestNewNodeInitialization(t *testing.T) {
     config := &util.Config{
         P2PAddress:    fmt.Sprintf("127.0.0.1:%d", port),
         EncryptionKey: []byte("1234567890123456"),
+		Difficulty: 4,
     }
     nodeInstance := node.NewNode(config, 24 * time.Hour)
 
@@ -43,6 +44,7 @@ func TestNodePutAndGet(t *testing.T) {
 	config := &util.Config{
 		P2PAddress:    "127.0.0.1:8080",
 		EncryptionKey: []byte("1234567890123456"),
+		Difficulty: 4,
 	}
 	nodeInstance := node.NewNode(config, 24 * time.Hour)
 
@@ -58,6 +60,7 @@ func TestNodeStorageTTL(t *testing.T) {
 	config := &util.Config{
 		P2PAddress:    "127.0.0.1:8080",
 		EncryptionKey: []byte("1234567890123456"),
+		Difficulty: 4,
 	}
 	nodeInstance := node.NewNode(config, 24 * time.Hour)
 

@@ -44,7 +44,7 @@ func NewNode(config *util.Config, ttl time.Duration) *Node {
 	ip, port, _ := util.ParseAddress(config.P2PAddress)
 
 	// Generate a node ID using Proof of Work
-	id, nonce := security.GenerateNodeIDWithPoW(ip, port)
+	id, nonce := security.GenerateNodeIDWithPoW(ip, port, config.Difficulty)
 
 	node := &Node{
 		ID:      id,
@@ -103,10 +103,6 @@ func (n *Node) GetID() string {
 // AddPeer is a placeholder for adding a peer to the node's routing table (mocked for now).
 func (n *Node) AddPeer(nodeID, ip string, port int) {
 	// Validate the node ID using PoW before adding the peer
-	if security.ValidateNodeIDWithPoW(ip, port, nodeID, n.Nonce) {
-		// Add the peer if validation passes
-		// Add peer logic here...
-	}
 }
 
 // RemovePeer is a placeholder for removing a peer from the node's routing table (mocked for now).

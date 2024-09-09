@@ -18,15 +18,14 @@ type Config struct {
 	TTL              int // TTL in seconds
 	RateLimiterRate  int // Requests per second
 	RateLimiterBurst int // Burst size
+	Difficulty       int // PoW Difficulty
 }
-
 
 type BootstrapNode struct {
 	IP   string
 	Port int
 }
 
-// LoadConfig reads configuration from the specified file and returns a Config object.
 func LoadConfig(filename string) *Config {
 	cfg, err := ini.Load(filename)
 	if err != nil {
@@ -42,6 +41,9 @@ func LoadConfig(filename string) *Config {
 	rateLimiterRate, _ := cfg.Section("rate_limiter").Key("requests_per_second").Int()
 	rateLimiterBurst, _ := cfg.Section("rate_limiter").Key("burst_size").Int()
 
+	// Load PoW difficulty from config
+	difficulty, _ := cfg.Section("security").Key("difficulty").Int()
+
 	bootstrapNodes := LoadBootstrapNodes(cfg)
 
 	return &Config{
@@ -53,6 +55,7 @@ func LoadConfig(filename string) *Config {
 		TTL:              ttl,
 		RateLimiterRate:  rateLimiterRate,
 		RateLimiterBurst: rateLimiterBurst,
+		Difficulty:       difficulty,
 	}
 }
 

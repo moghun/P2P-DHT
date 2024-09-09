@@ -24,6 +24,7 @@ func TestRateLimiterIntegration(t *testing.T) {
         EncryptionKey: []byte("1234567890123456"),
         RateLimiterRate:  10,
 		RateLimiterBurst: 20,
+		Difficulty: 4,
     }
     api.InitRateLimiter(config)
 
