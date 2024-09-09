@@ -74,7 +74,7 @@ func (lc *LivelinessChecker) checkLiveliness() {
 
 // pingPeer sends a ping message to a peer and waits for a response. If no response is received within the timeout, an error is returned.
 func (lc *LivelinessChecker) pingPeer(peerIP, peerID string, peerPort int) error {
-	pingMsg := message.NewDHTPingMessage()
+	pingMsg := message.NewDHTPingMessage([]byte(lc.node.GetID()))
 	serializedPingMsg, err := pingMsg.Serialize()
 	if err != nil {
 		return err

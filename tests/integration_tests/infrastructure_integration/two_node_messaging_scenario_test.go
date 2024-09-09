@@ -50,7 +50,7 @@ func TestTwoNodePingPong(t *testing.T) {
 	time.Sleep(1 * time.Second) // Ensure both servers are up
 
 	// Create the ping message
-	pingMsg := message.NewDHTPingMessage()
+	pingMsg := message.NewDHTPingMessage([]byte(node1.GetID()))
 	serializedPingMsg, err := pingMsg.Serialize()
 	assert.NoError(t, err)
 

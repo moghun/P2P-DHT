@@ -54,7 +54,7 @@ func TestStartServer(t *testing.T) {
 	defer conn.Close()
 
 	// Send a PING message to test the server
-	pingMsg := message.NewDHTPingMessage()
+	pingMsg := message.NewDHTPingMessage([]byte(mockNode.GetID()))
 	serializedMsg, err := pingMsg.Serialize()
 	assert.NoError(t, err, "Failed to serialize message")
 	_, err = conn.Write(serializedMsg)
@@ -112,7 +112,7 @@ func TestHandleConnection(t *testing.T) {
 	})
 
 	t.Run("TestHandlePing", func(t *testing.T) {
-		pingMsg := message.NewDHTPingMessage()
+		pingMsg := message.NewDHTPingMessage([]byte(mockNode.GetID()))
 		serializedMsg, err := pingMsg.Serialize()
 		assert.NoError(t, err, "Failed to serialize message")
 		conn.readData = serializedMsg

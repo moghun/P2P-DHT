@@ -99,15 +99,17 @@ func TestHandleGet(t *testing.T) {
 func TestHandlePing(t *testing.T) {
 	// Initialize a real storage and node for testing
 	store := storage.NewStorage(86400, []byte("1234567890abcdef"))
-	dht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
+	newDht := dht.NewDHT(86400, []byte("1234567890abcdef"), "1", "127.0.0.1", 8080)
 	realNode := &node.Node{
 		IP:      "127.0.0.1",
 		Port:    8080,
 		Storage: store,
-		DHT:     dht,
+		DHT:     newDht,
 	}
 
-	pingMsg := message.NewDHTPingMessage()
+	id := "testid"
+	hashedId := dht.EnsureKeyHashed(id)
+	pingMsg := message.NewDHTPingMessage([]byte(hashedId))
 	_, err := pingMsg.Serialize()
 	assert.NoError(t, err)
 

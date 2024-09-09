@@ -56,7 +56,9 @@ func TestDHTPongMessage(t *testing.T) {
 }
 
 func TestDHTPingMessage(t *testing.T) {
-	msg := message.NewDHTPingMessage()
+	id := "testId"
+	hashedId := dht.EnsureKeyHashed(id)
+	msg := message.NewDHTPingMessage([]byte(hashedId))
 
 	serialized, err := msg.Serialize()
 	assert.NoError(t, err)

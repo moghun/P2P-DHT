@@ -37,7 +37,7 @@ func TestPingPongIntegration(t *testing.T) {
 	defer conn.Close()
 
 	// Step 1: Send DHT_PING message
-	pingMsg := message.NewDHTPingMessage()
+	pingMsg := message.NewDHTPingMessage([]byte(mockNode.GetID()))
 	serializedPingMsg, err := pingMsg.Serialize()
 	assert.NoError(t, err)
 
