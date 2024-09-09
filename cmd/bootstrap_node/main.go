@@ -42,17 +42,10 @@ func main() {
 
 	// Start the API server to handle bootstrap requests from other nodes
 	go func() {
-		err := api.StartServer(config.P2PAddress, &bootstrapNodeInstance.Node)
+		api.InitRateLimiter(config)
+		err := api.StartServer(config.P2PAddress, bootstrapNodeInstance)
 		if err != nil {
 			util.Log().Fatalf("Failed to start API server: %v", err)
-		}
-	}()
-
-	// Start listening for incoming messages from other nodes
-	go func() {
-		err := bootstrapNodeInstance.Network.StartListening()
-		if err != nil {
-			util.Log().Fatalf("Failed to start node listening: %v", err)
 		}
 	}()
 
